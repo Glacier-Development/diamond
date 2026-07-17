@@ -14,7 +14,6 @@ const forwardBtn = document.getElementById('forwardBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const homeBtn = document.getElementById('homeBtn');
 const proxyFrame = document.getElementById('proxyFrame');
-const welcomeScreen = document.getElementById('welcomeScreen');
 const secureIcon = document.getElementById('secureIcon');
 const mainSearchInput = document.getElementById('mainSearchInput');
 const mainSearchBtn = document.getElementById('mainSearchBtn');
@@ -272,7 +271,7 @@ function navigateToUrl(inputValue = null) {
 }
 
 function loadUrlInFrame(url) {
-    welcomeScreen.style.display = 'none';
+    const ws1 = document.getElementById('welcomeScreen'); if (ws1) ws1.classList.add('hidden');
     proxyFrame.classList.add('active');
     
     // Encode URL for proxy using base64url encoding
@@ -285,7 +284,7 @@ function loadUrlInFrame(url) {
 function showWelcomeScreen() {
     proxyFrame.classList.remove('active');
     proxyFrame.src = 'about:blank';
-    welcomeScreen.style.display = 'flex';
+    const ws2 = document.getElementById('welcomeScreen'); if (ws2) ws2.classList.remove('hidden');
     
     if (activeTabId && tabs[activeTabId]) {
         tabs[activeTabId].url = '';
