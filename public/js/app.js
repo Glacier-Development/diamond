@@ -37,6 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
     createNewTab();
     setupEventListeners();
     checkAdminSession();
+    
+    // Hide proxy frame initially
+    if (proxyFrame) {
+        proxyFrame.classList.remove('active');
+    }
 });
 
 function setupEventListeners() {

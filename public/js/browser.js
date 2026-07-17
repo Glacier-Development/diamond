@@ -1,34 +1,24 @@
-// Diamond Proxy v3 - URL Encoding/Decoding
+// Diamond Proxy v3 - URL Encoding/Decoding and Browser Handling
 
-// Encode URL for proxy (encodeURIComponent with % replaced by -)
+// Encode URL for proxy using base64url encoding (matching server-side)
 function encodeUrl(url) {
-    return encodeURIComponent(url).replace(/%/g, '-');
+    if (!url) return url;
+    return Buffer.from(url, 'utf-8').toString('base64url');
 }
 
-// Decode URL from proxy (replace - with % then decodeURIComponent)
-function decodeUrl(encoded) {
+// Decode URL from proxy
+function decodeUrl(str) {
+    if (!str) return str;
     try {
-        // First try direct replacement
-        let decoded = encoded.replace(/-/g, '%');
-        return decodeURIComponent(decoded);
+        return Buffer.from(str, 'base64url').toString('utf-8');
     } catch (e) {
-        // If that fails, try multiple decoding passes
-        let result = encoded;
-        for (let i = 0; i < 3; i++) {
-            try {
-                result = result.replace(/-/g, '%');
-                return decodeURIComponent(result);
-            } catch (e) {
-                // Try without replacing if already decoded
-                try {
-                    return decodeURIComponent(encoded);
-                } catch (e2) {
-                    // Return as-is if all fails
-                    return encoded;
-                }
-            }
+        // Fallback to legacy format
+        try {
+            let decoded = str.replace(/-/g, '%');
+            return decodeURIComponent(decoded);
+        } catch (e2) {
+            return str;
         }
-        return encoded;
     }
 }
 
@@ -55,6 +45,15 @@ function getTargetUrl() {
 function buildProxyUrl(targetUrl) {
     if (!targetUrl) return '';
     
+    // Already proxied
+    if (targetUrl.startsWith('/proxy/~/')) return targetUrl;
+    
+    // Skip special protocols
+    const skipProtocols = ['data:', 'javascript:', 'mailto:', 'tel:', 'blob:', '#'];
+    for (const protocol of skipProtocols) {
+        if (targetUrl.startsWith(protocol)) return targetUrl;
+    }
+    
     // Handle protocol-relative URLs
     if (targetUrl.startsWith('//')) {
         targetUrl = window.location.protocol + targetUrl;
@@ -70,6 +69,13 @@ function buildProxyUrl(targetUrl) {
         } else {
             targetUrl = 'https://' + targetUrl;
         }
+    }
+    
+    // Validate URL
+    try {
+        new URL(targetUrl);
+    } catch (e) {
+        return targetUrl;
     }
     
     return PROXY_PREFIX + encodeUrl(targetUrl);
@@ -104,15 +110,17 @@ if ('serviceWorker' in navigator) {
     const originalFetch = window.fetch;
     const originalXHR = window.XMLHttpRequest;
     const originalOpen = window.open;
-    const originalLocation = Object.getOwnPropertyDescriptor(Window.prototype, 'location');
     
-    // Intercept fetch
+    // Intercept fetch - properly handle both string and Request objects
     window.fetch = function(...args) {
         let url = args[0];
         
         if (typeof url === 'string') {
-            url = buildProxyUrl(url);
-            args[0] = url;
+            // Skip data URLs and already proxied URLs
+            if (!url.startsWith('data:') && !url.startsWith('/proxy/~/')) {
+                const proxiedUrl = buildProxyUrl(url);
+                args[0] = proxiedUrl;
+            }
         } else if (url instanceof Request) {
             const newUrl = buildProxyUrl(url.url);
             args[0] = new Request(newUrl, {
@@ -137,7 +145,7 @@ if ('serviceWorker' in navigator) {
         const originalOpenXhr = xhr.open;
         
         xhr.open = function(method, url, ...rest) {
-            if (typeof url === 'string') {
+            if (typeof url === 'string' && !url.startsWith('data:') && !url.startsWith('/proxy/~/')) {
                 url = buildProxyUrl(url);
             }
             return originalOpenXhr.call(this, method, url, ...rest);
@@ -148,25 +156,30 @@ if ('serviceWorker' in navigator) {
     
     // Intercept window.open
     window.open = function(url, ...args) {
-        if (url) {
+        if (url && !url.startsWith('data:') && !url.startsWith('/proxy/~/')) {
             url = buildProxyUrl(url);
         }
         return originalOpen.call(this, url, ...args);
     };
     
-    // Intercept link clicks
+    // Intercept link clicks - prevent character corruption
     document.addEventListener('click', (e) => {
         const link = e.target.closest('a[href]');
         if (link && link.href) {
+            const href = link.getAttribute('href');
+            
             // Don't interfere with special protocols
-            if (link.href.startsWith('javascript:') || 
-                link.href.startsWith('mailto:') || 
-                link.href.startsWith('tel:')) {
+            if (href.startsWith('javascript:') || 
+                href.startsWith('mailto:') || 
+                href.startsWith('tel:') ||
+                href.startsWith('#') ||
+                href.startsWith('data:')) {
                 return;
             }
             
             // Rewrite href to go through proxy
-            link.href = buildProxyUrl(link.getAttribute('href'));
+            const proxiedHref = buildProxyUrl(href);
+            link.setAttribute('href', proxiedHref);
         }
     }, true);
     
@@ -174,7 +187,10 @@ if ('serviceWorker' in navigator) {
     document.addEventListener('submit', (e) => {
         const form = e.target;
         if (form && form.action) {
-            form.action = buildProxyUrl(form.getAttribute('action'));
+            const action = form.getAttribute('action');
+            if (action && !action.startsWith('data:')) {
+                form.setAttribute('action', buildProxyUrl(action));
+            }
         }
     }, true);
     
