@@ -2,7 +2,7 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment
 .env
 .env.local
 *.env.*
@@ -10,25 +10,29 @@ node_modules/
 # Logs
 *.log
 
-# Coverage reports
+# Coverage
 coverage/
 htmlcov/
 .coverage
 
-# IDE specific
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 
-# Build outputs
+# Build artifacts
 dist/
 build/
 target/
+*.o
+*.obj
+*.out
 
 # Python
 __pycache__/
@@ -38,11 +42,6 @@ __pycache__/
 .Python
 *.so
 *.egg-info/
-.eggs/
-
-# Temporary files
-*.tmp
-*~
 
 # Compressed files
 *.zip
