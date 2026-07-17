@@ -109,6 +109,7 @@ function setupEventListeners() {
     });
     
     saveMotdBtn.addEventListener('click', saveMotd);
+    // maintenanceToggle uses onchange directly in HTML
     restartServerBtn.addEventListener('click', restartServer);
     
     // Keyboard shortcuts
@@ -365,6 +366,32 @@ async function saveMotd() {
     } catch (error) {
         alert('Connection error');
         console.error('Save MOTD error:', error);
+    }
+}
+
+async function toggleMaintenance() {
+    const enabled = maintenanceToggle.checked;
+    
+    try {
+        const response = await fetch('/api/admin/maintenance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            alert(`Maintenance mode ${enabled ? 'enabled' : 'disabled'}!`);
+        } else {
+            alert('Failed to update maintenance mode: ' + (data.error || 'Unknown error'));
+            // Revert toggle state on error
+            maintenanceToggle.checked = !enabled;
+        }
+    } catch (error) {
+        alert('Connection error');
+        console.error('Toggle maintenance error:', error);
+        // Revert toggle state on error
+        maintenanceToggle.checked = !enabled;
     }
 }
 
