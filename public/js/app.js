@@ -296,3 +296,191 @@
     init();
   }
 })();
+
+/**
+ * Admin Panel Controller - Ctrl+B to toggle
+ */
+(function() {
+  'use strict';
+  
+  const modal = document.getElementById('admin-modal');
+  const loginSection = document.getElementById('admin-login-section');
+  const controlsSection = document.getElementById('admin-controls-section');
+  const passwordInput = document.getElementById('admin-password');
+  const loginBtn = document.getElementById('admin-login-btn');
+  const loginError = document.getElementById('admin-login-error');
+  const logoutBtn = document.getElementById('admin-logout');
+  const closeBtn = document.getElementById('admin-modal-close');
+  
+  let isAdminAuthenticated = false;
+  
+  // Toggle modal with Ctrl+B
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'b') {
+      e.preventDefault();
+      toggleAdminModal();
+    }
+  });
+  
+  function toggleAdminModal() {
+    if (!modal) return;
+    
+    const isHidden = modal.classList.contains('hidden');
+    if (isHidden) {
+      modal.classList.remove('hidden');
+      if (!isAdminAuthenticated) {
+        setTimeout(() => passwordInput?.focus(), 100);
+      }
+    } else {
+      modal.classList.add('hidden');
+    }
+  }
+  
+  // Close button
+  closeBtn?.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+  
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+  
+  // Login
+  loginBtn?.addEventListener('click', async () => {
+    const password = passwordInput?.value || '';
+    
+    if (!password) {
+      showLoginError('Password required');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        isAdminAuthenticated = true;
+        loginSection.classList.add('hidden');
+        controlsSection.classList.remove('hidden');
+        passwordInput.value = '';
+        loginError.classList.add('hidden');
+      } else {
+        showLoginError(data.error || 'Invalid password');
+      }
+    } catch (error) {
+      showLoginError('Login failed: ' + error.message);
+    }
+  });
+  
+  function showLoginError(message) {
+    if (loginError) {
+      loginError.textContent = message;
+      loginError.classList.remove('hidden');
+    }
+  }
+  
+  // Logout
+  logoutBtn?.addEventListener('click', async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' });
+      isAdminAuthenticated = false;
+      controlsSection.classList.add('hidden');
+      loginSection.classList.remove('hidden');
+      passwordInput.value = '';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  });
+  
+  // MOTD toggle
+  document.getElementById('admin-set-motd')?.addEventListener('click', async () => {
+    const message = document.getElementById('admin-motd-message')?.value || '';
+    const enabled = document.getElementById('admin-motd-toggle')?.checked || false;
+    
+    try {
+      const response = await fetch('/api/admin/motd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, enabled })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        alert('MOTD updated successfully!');
+      } else {
+        alert('Failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  });
+  
+  // Maintenance toggle
+  document.getElementById('admin-update-maintenance')?.addEventListener('click', async () => {
+    const message = document.getElementById('admin-maintenance-message')?.value || '';
+    const enabled = document.getElementById('admin-maintenance-toggle')?.checked || false;
+    
+    try {
+      const response = await fetch('/api/admin/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, enabled })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        alert('Maintenance mode updated!');
+      } else {
+        alert('Failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  });
+  
+  // Restart server
+  document.getElementById('admin-restart')?.addEventListener('click', async () => {
+    if (!confirm('⚠️ Are you sure you want to restart the server? This will disconnect all users.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/admin/restart', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('Server restart initiated...');
+      } else {
+        alert('Failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  });
+  
+  // Check admin session on load
+  async function checkAdminSession() {
+    try {
+      const response = await fetch('/api/admin/verify');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          isAdminAuthenticated = true;
+          loginSection.classList.add('hidden');
+          controlsSection.classList.remove('hidden');
+        }
+      }
+    } catch (e) {
+      // Not authenticated
+    }
+  }
+  
+  checkAdminSession();
+})();
