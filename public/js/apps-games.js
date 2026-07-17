@@ -1,12 +1,11 @@
 // Diamond Proxy v3 - Apps & Games Module
 
-// DOM Elements
+// Get references to elements already defined in app.js
 const appsTabBtn = document.getElementById('appsTabBtn');
 const gamesTabBtn = document.getElementById('gamesTabBtn');
 const appsScreen = document.getElementById('appsScreen');
 const gamesScreen = document.getElementById('gamesScreen');
-const welcomeScreen = document.getElementById('welcomeScreen');
-const proxyFrame = document.getElementById('proxyFrame');
+// welcomeScreen, proxyFrame are defined in app.js
 const appsGrid = document.getElementById('appsGrid');
 const gamesGrid = document.getElementById('gamesGrid');
 
@@ -136,16 +135,16 @@ function showGamesScreen() {
 
 function showWelcomeScreen() {
     hideAllScreens();
-    if (welcomeScreen) {
-        welcomeScreen.classList.remove('hidden');
+    if (window.welcomeScreen) {
+        window.welcomeScreen.classList.remove('hidden');
     }
 }
 
 function hideAllScreens() {
-    if (welcomeScreen) welcomeScreen.classList.add('hidden');
+    if (window.welcomeScreen) window.welcomeScreen.classList.add('hidden');
     if (appsScreen) appsScreen.classList.add('hidden');
     if (gamesScreen) gamesScreen.classList.add('hidden');
-    if (proxyFrame) proxyFrame.classList.remove('active');
+    if (window.proxyFrame) window.proxyFrame.classList.remove('active');
 }
 
 function launchAppOrGame(url, title) {
@@ -157,9 +156,9 @@ function launchAppOrGame(url, title) {
     // Encode URL for proxy
     const encodedUrl = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     
-    if (proxyFrame) {
-        proxyFrame.src = '/proxy/~/' + encodedUrl;
-        proxyFrame.classList.add('active');
+    if (window.proxyFrame) {
+        window.proxyFrame.src = '/proxy/~/' + encodedUrl;
+        window.proxyFrame.classList.add('active');
     }
     
     // Update address bar if available
