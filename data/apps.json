@@ -1,0 +1,56 @@
+[
+  {
+    "id": "google",
+    "title": "Google",
+    "description": "Search engine and gateway to the internet",
+    "thumbnail_url": "/data/thumbnails/google.png",
+    "proxy_url": "https://www.google.com/",
+    "category": "search",
+    "tags": ["search", "essential", "productivity"]
+  },
+  {
+    "id": "youtube",
+    "title": "YouTube",
+    "description": "Video sharing platform with billions of videos",
+    "thumbnail_url": "/data/thumbnails/youtube.png",
+    "proxy_url": "https://www.youtube.com/",
+    "category": "media",
+    "tags": ["video", "streaming", "entertainment"]
+  },
+  {
+    "id": "discord",
+    "title": "Discord",
+    "description": "Chat and voice communication for communities",
+    "thumbnail_url": "/data/thumbnails/discord.png",
+    "proxy_url": "https://discord.com/app",
+    "category": "social",
+    "tags": ["chat", "voice", "community"]
+  },
+  {
+    "id": "notion",
+    "title": "Notion",
+    "description": "All-in-one workspace for notes and collaboration",
+    "thumbnail_url": "/data/thumbnails/notion.png",
+    "proxy_url": "https://www.notion.so/",
+    "category": "productivity",
+    "tags": ["notes", "workspace", "collaboration"]
+  },
+  {
+    "id": "github",
+    "title": "GitHub",
+    "description": "Code hosting and version control platform",
+    "thumbnail_url": "/data/thumbnails/github.png",
+    "proxy_url": "https://github.com/",
+    "category": "development",
+    "tags": ["code", "git", "development"]
+  },
+  {
+    "id": "spotify",
+    "title": "Spotify Web",
+    "description": "Stream millions of songs and podcasts",
+    "thumbnail_url": "/data/thumbnails/spotify.png",
+    "proxy_url": "https://open.spotify.com/",
+    "category": "media",
+    "tags": ["music", "streaming", "audio"]
+  }
+]
