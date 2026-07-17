@@ -149,13 +149,21 @@
   }
 
   /**
-   * Encode URL to base64url format
+   * Encode URL - use encodeURIComponent for proper handling
    */
   function encodeUrl(str) {
-    return btoa(unescape(encodeURIComponent(str)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    return encodeURIComponent(str);
+  }
+
+  /**
+   * Decode URL from encoded format
+   */
+  function decodeUrl(str) {
+    try {
+      return decodeURIComponent(str);
+    } catch (e) {
+      return str;
+    }
   }
 
   /**
