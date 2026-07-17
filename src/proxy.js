@@ -77,11 +77,17 @@ function rewriteHtml(html, baseUrl) {
   
   let result = html;
   
+  // Inject base tag first for proper relative URL resolution
+  if (!result.includes('<base')) {
+    result = result.replace(/<head[^>]*>/i, `<head><base href="${baseUrl}">`);
+  }
+  
   // Rewrite common URL attributes
   const urlAttributes = [
     'src', 'href', 'action', 'data', 'poster', 'background',
     'srcset', 'data-src', 'data-href', 'data-background',
-    'data-poster', 'data-video', 'data-audio'
+    'data-poster', 'data-video', 'data-audio', 'data-srcset',
+    'content', 'url', 'thumbnail', 'image', 'imagesrc'
   ];
   
   // Pattern to match URL attributes in HTML tags
@@ -265,14 +271,15 @@ async function proxyHandler(req, res) {
     // Build request options with improved connection handling
     const isHttps = parsedUrl.protocol === 'https:';
     
-    // Create custom agent with better connection pooling
+    // Create custom agent with better connection pooling and performance
     const agentOptions = {
       keepAlive: true,
       keepAliveMsecs: 30000,
-      maxSockets: 50,
-      maxFreeSockets: 10,
+      maxSockets: 100, // Increased for better concurrency
+      maxFreeSockets: 20,
       timeout: 60000,
-      rejectUnauthorized: false // Allow self-signed certs (for compatibility)
+      rejectUnauthorized: false,
+      secureProtocol: 'TLS_method' // Support all TLS versions
     };
     
     const agent = isHttps 
@@ -499,8 +506,15 @@ async function proxyHandler(req, res) {
       // Send response status
       res.status(proxyRes.statusCode || 200);
       
-      // For video/audio/images, stream directly without modification
+      // For video/audio/images, stream directly without modification for best performance
       if (isVideo || isAudio || isImage) {
+        // Preserve content-range for range requests (critical for video seeking)
+        if (proxyRes.headers['content-range']) {
+          res.setHeader('Content-Range', proxyRes.headers['content-range']);
+        }
+        if (proxyRes.headers['accept-ranges']) {
+          res.setHeader('Accept-Ranges', proxyRes.headers['accept-ranges']);
+        }
         proxyRes.pipe(res);
         return;
       }

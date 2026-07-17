@@ -9,11 +9,20 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <!-- MOTD Banner -->
+  <div id="motd-banner" class="motd-banner hidden">
+    <div class="motd-content">
+      <span class="motd-icon">📢</span>
+      <span id="motd-message"></span>
+      <button id="motd-close" class="motd-close">×</button>
+    </div>
+  </div>
+
   <!-- Navigation -->
   <nav class="navbar">
     <div class="nav-brand">
       <span class="logo">◆</span>
-      <span class="brand-text">Diamond</span>
+      <span class="brand-text">Diamond <span class="version-badge">v2</span></span>
     </div>
     <ul class="nav-links">
       <li><a href="#" data-page="home" class="active">Browser</a></li>
@@ -21,6 +30,22 @@
       <li><a href="#" data-page="apps">Apps</a></li>
       <li><a href="#" data-page="settings">Settings</a></li>
     </ul>
+    <div class="auth-container">
+      <div id="auth-logged-out" class="auth-buttons">
+        <button id="login-btn" class="btn btn-outline">Login</button>
+        <button id="register-btn" class="btn btn-primary">Sign Up</button>
+      </div>
+      <div id="auth-logged-in" class="user-menu hidden">
+        <button id="user-dropdown-btn" class="user-btn">
+          <span id="username-display">User</span>
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div id="user-dropdown" class="dropdown hidden">
+          <a href="#" id="admin-link" class="dropdown-item hidden">⚙️ Admin Panel</a>
+          <a href="#" id="logout-btn" class="dropdown-item">Logout</a>
+        </div>
+      </div>
+    </div>
   </nav>
 
   <!-- Main Content -->
@@ -158,6 +183,73 @@
     <iframe id="browser-iframe" class="browser-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"></iframe>
   </div>
 
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal hidden">
+    <div class="modal-content auth-modal-content">
+      <button id="auth-modal-close" class="modal-close">×</button>
+      <h2 id="auth-modal-title" class="modal-title">Login</h2>
+      <form id="auth-form" class="auth-form">
+        <div class="form-group">
+          <label for="auth-username">Username</label>
+          <input type="text" id="auth-username" required minlength="3" maxlength="30" autocomplete="username">
+        </div>
+        <div class="form-group" id="email-group" style="display: none;">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" required minlength="8" autocomplete="current-password">
+        </div>
+        <p id="auth-error" class="form-error hidden"></p>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-full">Login</button>
+        <p class="auth-switch">
+          <span id="auth-switch-text">Don't have an account?</span>
+          <a href="#" id="auth-switch-link">Sign up</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Panel Modal -->
+  <div id="admin-modal" class="modal hidden">
+    <div class="modal-content admin-modal-content">
+      <button id="admin-modal-close" class="modal-close">×</button>
+      <h2 class="modal-title">⚙️ Admin Panel</h2>
+      <div class="admin-section">
+        <h3>MOTD Management</h3>
+        <div class="form-group">
+          <label for="admin-motd-message">Message of the Day</label>
+          <input type="text" id="admin-motd-message" placeholder="Enter MOTD message">
+        </div>
+        <button id="admin-set-motd" class="btn btn-primary">Set MOTD</button>
+      </div>
+      <div class="admin-section">
+        <h3>Maintenance Mode</h3>
+        <div class="form-group">
+          <label for="admin-maintenance-message">Maintenance Message</label>
+          <input type="text" id="admin-maintenance-message" placeholder="Enter maintenance message">
+        </div>
+        <div class="toggle-row">
+          <label class="toggle-label">
+            <input type="checkbox" id="admin-maintenance-toggle">
+            <span class="toggle-slider"></span>
+            Enable Maintenance Mode
+          </label>
+        </div>
+        <button id="admin-update-maintenance" class="btn btn-warning">Update</button>
+      </div>
+      <div class="admin-section">
+        <h3>Server Control</h3>
+        <button id="admin-restart" class="btn btn-danger">Restart Server</button>
+      </div>
+      <div class="admin-section">
+        <h3>Recent Events</h3>
+        <div id="admin-events" class="events-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Error Modal -->
   <div id="error-modal" class="modal hidden">
     <div class="modal-content">
@@ -168,6 +260,7 @@
   </div>
 
   <script src="/js/sw-register.js"></script>
+  <script src="/js/auth.js"></script>
   <script src="/js/app.js"></script>
   <script src="/js/browser.js"></script>
 </body>
