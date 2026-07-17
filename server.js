@@ -2,16 +2,21 @@ const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const { proxyHandler, rewriteUrl } = require('./src/proxy');
 const settings = require('./config/settings.json');
-const db = require('./src/database');
-const auth = require('./src/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize database
-db.initializeDatabase();
+// Admin password hash (change this!)
+const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update('DiamondAdmin2024!Secure').digest('hex');
+
+// In-memory state
+let maintenanceMode = false;
+let maintenanceMessage = 'Diamond Proxy is under maintenance.';
+let motdMessage = settings.motd.message;
+let motdEnabled = settings.motd.enabled;
 
 // Parse cookies
 app.use(cookieParser());
@@ -20,13 +25,17 @@ app.use(cookieParser());
 app.use(express.json({ limit: settings.features.maxUploadSize }));
 app.use(express.urlencoded({ extended: true, limit: settings.features.maxUploadSize }));
 
-// Global rate limiter
+// Global rate limiter - more lenient for better UX
 const globalLimiter = rateLimit({
-  windowMs: settings.rateLimit.windowMs,
-  max: settings.rateLimit.maxRequests,
-  message: { error: 'Too many requests, please try again later' },
+  windowMs: 60000, // 1 minute
+  max: 200, // 200 requests per minute
+  message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for static assets
+    return req.path.startsWith('/css/') || req.path.startsWith('/js/');
+  }
 });
 app.use(globalLimiter);
 
@@ -42,12 +51,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Maintenance mode middleware
+// Maintenance mode middleware (skip for API and static files)
 app.use((req, res, next) => {
-  if (settings.maintenance.enabled && !req.path.startsWith('/api/auth')) {
+  if (maintenanceMode && !req.path.startsWith('/api/') && req.path !== '/') {
     return res.status(503).json({
       error: 'Maintenance Mode',
-      message: settings.maintenance.message
+      message: maintenanceMessage
     });
   }
   next();
@@ -77,167 +86,138 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
     timestamp: Date.now(),
-    version: '2.0.0',
-    maintenance: settings.maintenance.enabled
+    version: '3.0.0',
+    maintenance: maintenanceMode
   });
 });
 
 // Get MOTD
-app.get('/api/motd', async (req, res) => {
-  try {
-    const motd = await db.getMotd();
-    const configMotd = settings.motd.enabled ? { message: settings.motd.message, enabled: true } : null;
-    res.json({ 
-      success: true,
-      motd: motd || configMotd
-    });
-  } catch (error) {
-    res.json({ success: false, motd: settings.motd.enabled ? { message: settings.motd.message } : null });
-  }
+app.get('/api/motd', (req, res) => {
+  res.json({ 
+    success: true,
+    motd: motdEnabled ? { message: motdMessage, enabled: true } : null
+  });
 });
 
-// Auth routes
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    
-    if (!settings.auth.enabled) {
-      return res.status(400).json({ error: 'Authentication is disabled' });
-    }
-    
-    const result = await auth.registerUser(username, email, password, ipAddress);
-    
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-    
-    // Set token in cookie
-    res.cookie('token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: settings.auth.sessionTimeout
-    });
-    
-    res.status(201).json(result);
-  } catch (error) {
-    console.error('[AUTH] Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+// Admin authentication middleware (session-based via cookie)
+const adminAuthMiddleware = (req, res, next) => {
+  const adminToken = req.cookies.admin_token;
+  
+  if (!adminToken) {
+    return res.status(401).json({ error: 'Admin authentication required' });
   }
-});
-
-app.post('/api/auth/login', async (req, res) => {
+  
+  // Verify token (simple hash verification)
   try {
-    const { username, password } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'] || '';
+    const [timestamp, hash] = adminToken.split(':');
+    const expectedHash = crypto.createHash('sha256').update(timestamp + ADMIN_PASSWORD_HASH).digest('hex');
     
-    if (!settings.auth.enabled) {
-      return res.status(400).json({ error: 'Authentication is disabled' });
+    if (hash !== expectedHash) {
+      return res.status(401).json({ error: 'Invalid admin token' });
     }
     
-    const result = await auth.loginUser(username, password, ipAddress, userAgent);
-    
-    if (!result.success) {
-      return res.status(401).json(result);
+    // Check if token is older than 8 hours
+    if (Date.now() - parseInt(timestamp) > 8 * 60 * 60 * 1000) {
+      return res.status(401).json({ error: 'Admin session expired' });
     }
     
-    // Set token in cookie
-    res.cookie('token', result.token, {
+    req.isAdmin = true;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid admin token format' });
+  }
+};
+
+// Admin login endpoint
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password required' });
+    }
+    
+    // Hash the provided password
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    
+    if (passwordHash !== ADMIN_PASSWORD_HASH) {
+      // Log failed attempt (with rate limiting consideration)
+      console.warn(`[ADMIN] Failed login attempt from ${req.ip}`);
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    // Create session token
+    const timestamp = Date.now().toString();
+    const tokenHash = crypto.createHash('sha256').update(timestamp + ADMIN_PASSWORD_HASH).digest('hex');
+    const adminToken = `${timestamp}:${tokenHash}`;
+    
+    // Set secure cookie
+    res.cookie('admin_token', adminToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: settings.auth.sessionTimeout
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000 // 8 hours
     });
     
-    res.json(result);
+    console.log(`[ADMIN] Successful login from ${req.ip}`);
+    res.json({ success: true, message: 'Admin access granted' });
   } catch (error) {
-    console.error('[AUTH] Login error:', error);
+    console.error('[ADMIN] Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
 
-app.post('/api/auth/logout', auth.authMiddleware, async (req, res) => {
-  try {
-    const token = req.cookies.token || req.headers.authorization?.replace('Bearer ', '');
-    await auth.logoutUser(token);
-    
-    res.clearCookie('token');
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: 'Logout failed' });
-  }
+// Admin logout
+app.post('/api/admin/logout', (req, res) => {
+  res.clearCookie('admin_token');
+  res.json({ success: true });
 });
 
-app.get('/api/auth/me', auth.authMiddleware, async (req, res) => {
-  try {
-    const token = req.cookies.token || req.headers.authorization?.replace('Bearer ', '');
-    const user = await auth.getCurrentUser(token);
-    
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    res.json({ success: true, user });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get user info' });
-  }
+// Verify admin session
+app.get('/api/admin/verify', adminAuthMiddleware, (req, res) => {
+  res.json({ success: true, isAdmin: true });
 });
 
 // Admin routes
-app.post('/api/admin/motd', auth.authMiddleware, auth.adminMiddleware, async (req, res) => {
+app.post('/api/admin/motd', adminAuthMiddleware, async (req, res) => {
   try {
-    const { message, enabled = true } = req.body;
+    const { message, enabled } = req.body;
     
-    if (!message) {
-      return res.status(400).json({ error: 'Message required' });
+    if (message !== undefined) {
+      motdMessage = message;
+    }
+    if (enabled !== undefined) {
+      motdEnabled = enabled;
     }
     
-    const result = await db.setMotd(message, req.user.userId, enabled);
-    
-    if (!result.success) {
-      return res.status(500).json(result);
-    }
-    
-    await db.logServerEvent('MOTD_UPDATE', `MOTD updated by ${req.user.username}`, req.user.userId);
-    
-    res.json(result);
+    console.log(`[ADMIN] MOTD updated by ${req.ip}: "${motdMessage}" (enabled: ${motdEnabled})`);
+    res.json({ success: true, motd: { message: motdMessage, enabled: motdEnabled } });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update MOTD' });
   }
 });
 
-app.post('/api/admin/maintenance', auth.authMiddleware, auth.adminMiddleware, async (req, res) => {
+app.post('/api/admin/maintenance', adminAuthMiddleware, async (req, res) => {
   try {
     const { enabled, message } = req.body;
     
-    // Update settings in memory (in production, this should persist to file/db)
-    settings.maintenance.enabled = enabled;
-    if (message) {
-      settings.maintenance.message = message;
+    if (enabled !== undefined) {
+      maintenanceMode = enabled;
+    }
+    if (message !== undefined) {
+      maintenanceMessage = message;
     }
     
-    await db.logServerEvent(
-      enabled ? 'MAINTENANCE_ENABLE' : 'MAINTENANCE_DISABLE',
-      `Maintenance mode ${enabled ? 'enabled' : 'disabled'} by ${req.user.username}`,
-      req.user.userId
-    );
-    
-    res.json({ success: true, maintenance: settings.maintenance });
+    console.log(`[ADMIN] Maintenance mode ${maintenanceMode ? 'enabled' : 'disabled'} by ${req.ip}`);
+    res.json({ success: true, maintenance: { enabled: maintenanceMode, message: maintenanceMessage } });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update maintenance mode' });
   }
 });
 
-app.post('/api/admin/restart', auth.authMiddleware, auth.adminMiddleware, async (req, res) => {
+app.post('/api/admin/restart', adminAuthMiddleware, async (req, res) => {
   try {
-    await db.logServerEvent(
-      'SERVER_RESTART',
-      `Server restart requested by ${req.user.username}`,
-      req.user.userId
-    );
-    
+    console.log(`[ADMIN] Server restart requested by ${req.ip}`);
     res.json({ success: true, message: 'Server restarting...' });
     
     // Graceful restart
@@ -246,22 +226,6 @@ app.post('/api/admin/restart', auth.authMiddleware, auth.adminMiddleware, async 
     }, 1000);
   } catch (error) {
     res.status(500).json({ error: 'Failed to restart server' });
-  }
-});
-
-app.get('/api/admin/events', auth.authMiddleware, auth.adminMiddleware, async (req, res) => {
-  try {
-    const { data, error } = await db.supabase
-      .from('server_events')
-      .select('*, users(username)')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    
-    if (error) throw error;
-    
-    res.json({ success: true, events: data || [] });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch events' });
   }
 });
 
@@ -293,8 +257,14 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Diamond Proxy v2.0.0 running on port ${PORT}`);
+  console.log(`Diamond Proxy v3.0.0 running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Auth enabled: ${settings.auth.enabled}`);
-  console.log(`Maintenance mode: ${settings.maintenance.enabled}`);
+  console.log(`Maintenance mode: ${maintenanceMode}`);
+  console.log('==> Your service is live 🎉');
+  console.log('==>');
+  console.log('///////////////////////////////////////////////////////////////');
+  console.log('==>');
+  console.log(`==> Available at your primary URL https://diamond-lav6.onrender.com`);
+  console.log('==>');
+  console.log('///////////////////////////////////////////////////////////////');
 });

@@ -1,363 +1,444 @@
+/**
+ * Diamond Proxy Engine v3.0
+ * Advanced proxy engine with Scramjet-inspired architecture
+ * Features: Video streaming, content rewriting, codec support, optimized performance
+ */
+
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
 const zlib = require('zlib');
 const iconv = require('iconv-lite');
+const crypto = require('crypto');
+const { EventEmitter } = require('events');
+const stream = require('stream');
 
-// Base64url encoding/decoding for URL obfuscation
+// ============================================================================
+// Configuration and Constants
+// ============================================================================
+
+const MAX_SOCKETS = 256;
+const FREE_SOCKET_TIMEOUT = 30000;
+const REQUEST_TIMEOUT = 120000;
+const VIDEO_CODECS = ['h264', 'vp9', 'av1', 'hevc'];
+const AUDIO_CODECS = ['aac', 'opus', 'mp3', 'vorbis'];
+const MEDIA_TYPES = {
+  video: ['video/mp4', 'video/webm', 'video/ogg', 'video/x-matroska'],
+  audio: ['audio/mpeg', 'audio/ogg', 'audio/webm', 'audio/aac', 'audio/opus'],
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml']
+};
+
+// ============================================================================
+// Connection Pool Manager (Similar to Scramjet's connection management)
+// ============================================================================
+
+class ConnectionPool extends EventEmitter {
+  constructor() {
+    super();
+    this.httpAgent = new http.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000,
+      maxSockets: MAX_SOCKETS,
+      maxFreeSockets: 64,
+      timeout: FREE_SOCKET_TIMEOUT,
+      scheduling: 'lifo'
+    });
+    
+    this.httpsAgent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000,
+      maxSockets: MAX_SOCKETS,
+      maxFreeSockets: 64,
+      timeout: FREE_SOCKET_TIMEOUT,
+      rejectUnauthorized: false,
+      secureProtocol: 'TLS_method',
+      scheduling: 'lifo'
+    });
+    
+    this.setupAgents();
+  }
+  
+  setupAgents() {
+    // Monitor socket usage
+    setInterval(() => {
+      this.emit('stats', {
+        http: { sockets: this.httpAgent.sockets?.length || 0, freeSockets: this.httpAgent.freeSockets?.length || 0 },
+        https: { sockets: this.httpsAgent.sockets?.length || 0, freeSockets: this.httpsAgent.freeSockets?.length || 0 }
+      });
+    }, 10000);
+  }
+  
+  getAgent(isHttps) {
+    return isHttps ? this.httpsAgent : this.httpAgent;
+  }
+  
+  destroy() {
+    this.httpAgent.destroy();
+    this.httpsAgent.destroy();
+  }
+}
+
+// Global connection pool
+const connectionPool = new ConnectionPool();
+
+// ============================================================================
+// URL Encoding/Decoding (Base64URL for obfuscation)
+// ============================================================================
+
 function encodeUrl(str) {
+  if (!str) return str;
   return Buffer.from(str, 'utf-8').toString('base64url');
 }
 
 function decodeUrl(str) {
-  return Buffer.from(str, 'base64url').toString('utf-8');
-}
-
-/**
- * Rewrites a client URL to the proxy path
- * @param {string} url - The original URL to proxy
- * @returns {string} - The proxied URL path
- */
-function rewriteUrl(url, baseUrl) {
-  // Handle URLs that are already proxied
-  if (url.startsWith('/proxy/')) {
-    return url;
-  }
-  
-  // Resolve relative URLs against base URL
-  if (baseUrl && !url.match(/^https?:\/\//i)) {
-    try {
-      url = new URL(url, baseUrl).href;
-    } catch (e) {
-      // If resolution fails, continue with original
-    }
-  }
-  
-  // Add protocol if missing
-  if (!url.match(/^https?:\/\//i)) {
-    url = 'https://' + url;
-  }
-  
+  if (!str) return str;
   try {
-    // Validate URL format
-    new URL(url);
-  } catch (e) {
-    throw new Error('Invalid URL format');
-  }
-  
-  return `/proxy/${encodeUrl(url)}`;
-}
-
-/**
- * Extracts the original URL from a proxied request path
- * @param {string} path - The request path containing encoded URL
- * @returns {string} - The decoded original URL
- */
-function extractUrl(path) {
-  const match = path.match(/^\/proxy\/(.+)$/);
-  if (!match) {
-    throw new Error('Invalid proxy path');
-  }
-  
-  try {
-    return decodeUrl(match[1]);
+    return Buffer.from(str, 'base64url').toString('utf-8');
   } catch (e) {
     throw new Error('Failed to decode URL');
   }
 }
 
-/**
- * Rewrites HTML content to use proxied URLs
- * @param {string} html - Original HTML content
- * @param {string} baseUrl - Base URL for resolving relative paths
- * @returns {string} - Rewritten HTML content
- */
-function rewriteHtml(html, baseUrl) {
-  if (!html || typeof html !== 'string') return html;
+function extractUrlFromPath(path) {
+  const match = path.match(/^\/proxy\/(.+)$/);
+  if (!match) {
+    throw new Error('Invalid proxy path');
+  }
+  return decodeUrl(match[1]);
+}
+
+// ============================================================================
+// URL Rewriting Engine
+// ============================================================================
+
+function rewriteUrl(url, baseUrl = null) {
+  if (!url || typeof url !== 'string') return url;
   
-  let result = html;
+  // Already proxied
+  if (url.startsWith('/proxy/')) return url;
   
-  // Inject base tag first for proper relative URL resolution
-  if (!result.includes('<base')) {
-    result = result.replace(/<head[^>]*>/i, `<head><base href="${baseUrl}">`);
+  // Skip special protocols
+  const skipProtocols = ['data:', 'javascript:', 'mailto:', 'tel:', 'blob:', '#'];
+  for (const protocol of skipProtocols) {
+    if (url.startsWith(protocol)) return url;
   }
   
-  // Rewrite common URL attributes
-  const urlAttributes = [
-    'src', 'href', 'action', 'data', 'poster', 'background',
-    'srcset', 'data-src', 'data-href', 'data-background',
-    'data-poster', 'data-video', 'data-audio', 'data-srcset',
-    'content', 'url', 'thumbnail', 'image', 'imagesrc'
-  ];
+  // Handle protocol-relative URLs
+  if (url.startsWith('//')) {
+    url = 'https:' + url;
+  }
   
-  // Pattern to match URL attributes in HTML tags
-  urlAttributes.forEach(attr => {
-    // Match attribute="value" or attribute='value'
-    const pattern = new RegExp(`(${attr}\\s*=\\s*)(["'])((?:(?!\\2).)+?)\\2`, 'gi');
-    result = result.replace(pattern, (match, prefix, quote, url) => {
-      // Skip data URLs, javascript:, mailto:, tel:, etc.
-      if (url.startsWith('data:') || 
-          url.startsWith('javascript:') || 
-          url.startsWith('mailto:') || 
-          url.startsWith('tel:') ||
-          url.startsWith('#') ||
-          url.startsWith('blob:')) {
-        return match;
+  // Resolve relative URLs
+  if (baseUrl && !/^https?:\/\//i.test(url)) {
+    try {
+      url = new URL(url, baseUrl).href;
+    } catch (e) {
+      return url;
+    }
+  }
+  
+  // Add default protocol
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  
+  // Validate
+  try {
+    new URL(url);
+  } catch (e) {
+    return url;
+  }
+  
+  return `/proxy/${encodeUrl(url)}`;
+}
+
+function rewriteSrcSet(srcset, baseUrl) {
+  if (!srcset) return srcset;
+  
+  return srcset.split(',').map(part => {
+    const trimmed = part.trim();
+    const spaceIndex = trimmed.indexOf(' ');
+    
+    if (spaceIndex === -1) {
+      return rewriteUrl(trimmed, baseUrl);
+    }
+    
+    const url = trimmed.substring(0, spaceIndex);
+    const descriptor = trimmed.substring(spaceIndex + 1);
+    return `${rewriteUrl(url, baseUrl)} ${descriptor}`;
+  }).join(', ');
+}
+
+// ============================================================================
+// Content Rewriting Engine
+// ============================================================================
+
+class ContentRewriter {
+  constructor() {
+    this.urlAttributes = [
+      'src', 'href', 'action', 'data', 'poster', 'background',
+      'srcset', 'data-src', 'data-href', 'data-background',
+      'data-poster', 'data-video', 'data-audio', 'data-srcset',
+      'content', 'url', 'thumbnail', 'imagesrc', 'xlink:href'
+    ];
+  }
+  
+  rewriteHtml(html, baseUrl) {
+    if (!html || typeof html !== 'string') return html;
+    
+    let result = html;
+    
+    // Inject base tag for proper relative URL resolution in iframe
+    if (!result.includes('<base') && result.includes('<head')) {
+      result = result.replace(/<head[^>]*>/i, `<head><base href="${baseUrl}" target="_top">`);
+    }
+    
+    // Rewrite URL attributes
+    for (const attr of this.urlAttributes) {
+      if (attr === 'srcset') {
+        // Handle srcset specially (multiple URLs)
+        const pattern = new RegExp(`(${attr})\\s*=\\s*(["'])((?:(?!\\2).)+?)\\2`, 'gi');
+        result = result.replace(pattern, (match, name, quote, value) => {
+          const rewritten = rewriteSrcSet(value, baseUrl);
+          return `${name}=${quote}${rewritten}${quote}`;
+        });
+      } else {
+        // Single URL attributes
+        const pattern = new RegExp(`(${attr})\\s*=\\s*(["'])((?:(?!\\2).)+?)\\2`, 'gi');
+        result = result.replace(pattern, (match, name, quote, value) => {
+          const rewritten = rewriteUrl(value, baseUrl);
+          return `${name}=${quote}${rewritten}${quote}`;
+        });
       }
-      
-      // Skip if already proxied
-      if (url.startsWith('/proxy/')) {
-        return match;
-      }
-      
-      try {
-        const proxiedUrl = rewriteUrl(url, baseUrl);
-        return `${prefix}${quote}${proxiedUrl}${quote}`;
-      } catch (e) {
-        return match;
-      }
+    }
+    
+    // Rewrite CSS in style tags
+    result = result.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, css) => {
+      return match.replace(css, this.rewriteCss(css, baseUrl));
     });
     
-    // Handle srcset specifically (multiple URLs)
-    if (attr === 'srcset') {
-      const srcsetPattern = new RegExp(`(${attr}\\s*=\\s*)(["'])(.+?)\\2`, 'gi');
-      result = result.replace(srcsetPattern, (match, prefix, quote, srcset) => {
-        const urls = srcset.split(',').map(part => {
-          const trimmed = part.trim();
-          const parts = trimmed.split(/\s+/);
-          if (parts.length === 0) return '';
-          
-          const url = parts[0];
-          const descriptor = parts.slice(1).join(' ');
-          
-          if (url.startsWith('data:') || url.startsWith('/proxy/')) {
-            return trimmed;
-          }
-          
-          try {
-            const proxiedUrl = rewriteUrl(url, baseUrl);
-            return descriptor ? `${proxiedUrl} ${descriptor}` : proxiedUrl;
-          } catch (e) {
-            return trimmed;
-          }
-        });
-        
-        return `${prefix}${quote}${urls.join(', ')}${quote}`;
-      });
-    }
-  });
-  
-  // Rewrite CSS in style tags
-  result = result.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, css) => {
-    const rewrittenCss = rewriteCss(css, baseUrl);
-    return match.replace(css, rewrittenCss);
-  });
-  
-  // Rewrite inline styles
-  result = result.replace(/style\s*=\s*(["'])([^"']*?)\1/gi, (match, quote, style) => {
-    const rewrittenStyle = rewriteCss(style, baseUrl);
-    return `style=${quote}${rewrittenStyle}${quote}`;
-  });
-  
-  return result;
-}
-
-/**
- * Rewrites CSS content to use proxied URLs
- * @param {string} css - Original CSS content
- * @param {string} baseUrl - Base URL for resolving relative paths
- * @returns {string} - Rewritten CSS content
- */
-function rewriteCss(css, baseUrl) {
-  if (!css || typeof css !== 'string') return css;
-  
-  // Rewrite url() in CSS
-  return css.replace(/url\s*\(\s*(["']?)([^"'\)]+)\1\s*\)/gi, (match, quote, url) => {
-    url = url.trim();
+    // Rewrite inline styles
+    result = result.replace(/style\s*=\s*(["'])([^"']*?)\1/gi, (match, quote, style) => {
+      return `style=${quote}${this.rewriteCss(style, baseUrl)}${quote}`;
+    });
     
-    // Skip data URLs and already proxied URLs
-    if (url.startsWith('data:') || url.startsWith('/proxy/')) {
-      return match;
+    // Inject service worker interceptor script
+    if (result.includes('</body>')) {
+      const swScript = `
+        <script>
+        (function() {
+          const _fetch = window.fetch;
+          const _xhrOpen = XMLHttpRequest.prototype.open;
+          const _xhrSend = XMLHttpRequest.prototype.send;
+          
+          window.fetch = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && !args[0].startsWith('/proxy/') && !args[0].startsWith('data:')) {
+              args[0] = '/proxy/' + btoa(args[0]).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+            }
+            return _fetch.apply(this, args);
+          };
+          
+          XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            if (url && !url.startsWith('/proxy/') && !url.startsWith('data:')) {
+              url = '/proxy/' + btoa(url).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+            }
+            this._diamondUrl = url;
+            return _xhrOpen.call(this, method, url, ...rest);
+          };
+        })();
+        </script>
+      `;
+      result = result.replace('</body>', swScript + '</body>');
     }
     
-    try {
-      const proxiedUrl = rewriteUrl(url, baseUrl);
-      return `url(${quote}${proxiedUrl}${quote})`;
-    } catch (e) {
-      return match;
-    }
-  });
-}
-
-/**
- * Rewrites JavaScript to handle fetch/XHR through proxy
- * @param {string} js - Original JavaScript content
- * @param {string} baseUrl - Base URL for resolving relative paths
- * @returns {string} - Rewritten JavaScript content
- */
-function rewriteJs(js, baseUrl) {
-  if (!js || typeof js !== 'string') return js;
+    return result;
+  }
   
-  let result = js;
-  
-  // Rewrite fetch calls
-  result = result.replace(/fetch\s*\(\s*(["'`])([^"'`]+)\1/g, (match, quote, url) => {
-    if (url.startsWith('data:') || url.startsWith('/proxy/') || url.startsWith('http')) {
-      try {
-        const proxiedUrl = rewriteUrl(url, baseUrl);
-        return `fetch("${proxiedUrl}"`;
-      } catch (e) {
+  rewriteCss(css, baseUrl) {
+    if (!css || typeof css !== 'string') return css;
+    
+    // Rewrite url() references
+    return css.replace(/url\s*\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, url) => {
+      url = url.trim();
+      if (url.startsWith('data:') || url.startsWith('/proxy/')) {
         return match;
       }
-    }
-    return match;
-  });
+      const rewritten = rewriteUrl(url, baseUrl);
+      return `url(${quote}${rewritten}${quote})`;
+    });
+  }
   
-  // Rewrite XMLHttpRequest.open calls
-  result = result.replace(/\.open\s*\(\s*(["'][^"']+["'])\s*,\s*(["'])([^"']+)\2/g, (match, method, urlQuote, url) => {
-    if (url.startsWith('data:') || url.startsWith('/proxy/') || url.startsWith('http')) {
-      try {
-        const proxiedUrl = rewriteUrl(url, baseUrl);
-        return `.open(${method}, "${proxiedUrl}"`;
-      } catch (e) {
-        return match;
-      }
-    }
-    return match;
-  });
-  
-  return result;
+  rewriteJs(js, baseUrl) {
+    if (!js || typeof js !== 'string') return js;
+    
+    let result = js;
+    
+    // Rewrite fetch calls
+    result = result.replace(/fetch\s*\(\s*(["'`])([^"'`]+)\1/g, (match, quote, url) => {
+      if (url.startsWith('/proxy/') || url.startsWith('data:')) return match;
+      return `fetch("${rewriteUrl(url, baseUrl)}"`;
+    });
+    
+    // Rewrite XMLHttpRequest.open
+    result = result.replace(/\.open\s*\(\s*(["'][^"']+["'])\s*,\s*(["'])([^"']+)\2/g, (match, method, q, url) => {
+      if (url.startsWith('/proxy/') || url.startsWith('data:')) return match;
+      return `.open(${method}, "${rewriteUrl(url, baseUrl)}"`;
+    });
+    
+    return result;
+  }
 }
 
-/**
- * Advanced proxy handler with Scramjet-like features
- * Supports video streaming, content rewriting, and more
- */
+const rewriter = new ContentRewriter();
+
+// ============================================================================
+// Security Utilities
+// ============================================================================
+
+function isPrivateIP(hostname) {
+  const privatePatterns = [
+    /^localhost$/i,
+    /^127\./,
+    /^10\./,
+    /^192\.168\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^::1$/,
+    /^fe80:/,
+    /^fc00:/
+  ];
+  
+  return privatePatterns.some(pattern => pattern.test(hostname));
+}
+
+function sanitizeHeaders(headers) {
+  const safeHeaders = {};
+  const allowedHeaders = [
+    'accept', 'accept-language', 'accept-encoding', 'cache-control',
+    'if-modified-since', 'if-none-match', 'range', 'content-type',
+    'authorization', 'referer', 'origin', 'user-agent', 'cookie'
+  ];
+  
+  for (const [key, value] of Object.entries(headers)) {
+    const lowerKey = key.toLowerCase();
+    if (allowedHeaders.includes(lowerKey) && value) {
+      // Sanitize header values
+      const sanitized = String(value).replace(/[^\x20-\x7E]/g, '');
+      if (sanitized) {
+        safeHeaders[key] = sanitized;
+      }
+    }
+  }
+  
+  return safeHeaders;
+}
+
+// ============================================================================
+// Media Type Detection
+// ============================================================================
+
+function getMediaType(contentType) {
+  if (!contentType) return null;
+  
+  const ct = contentType.toLowerCase();
+  
+  for (const [type, mimeTypes] of Object.entries(MEDIA_TYPES)) {
+    if (mimeTypes.some(mime => ct.includes(mime))) {
+      return type;
+    }
+  }
+  
+  if (ct.includes('text/html')) return 'html';
+  if (ct.includes('text/css')) return 'css';
+  if (ct.includes('javascript') || ct.includes('application/x-javascript')) return 'js';
+  if (ct.includes('application/json')) return 'json';
+  
+  return null;
+}
+
+function shouldStreamDirectly(contentType) {
+  const mediaType = getMediaType(contentType);
+  return mediaType === 'video' || mediaType === 'audio' || mediaType === 'image';
+}
+
+// ============================================================================
+// Decompression Handler
+// ============================================================================
+
+function createDecompressStream(encoding) {
+  switch (encoding) {
+    case 'gzip':
+      return zlib.createGunzip();
+    case 'deflate':
+      return zlib.createInflate();
+    case 'br':
+      // Brotli not supported in standard Node.js without additional deps
+      return null;
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// Main Proxy Handler
+// ============================================================================
+
 async function proxyHandler(req, res) {
   const startTime = Date.now();
+  const requestId = crypto.randomBytes(8).toString('hex');
   
   try {
-    // Extract the target URL from the request path
+    // Extract target URL
     let targetUrl;
     try {
-      targetUrl = extractUrl(req.path);
+      targetUrl = extractUrlFromPath(req.path);
     } catch (e) {
-      return res.status(400).json({ error: 'Invalid proxy URL' });
+      return res.status(400).json({ error: 'Invalid proxy URL format' });
     }
     
-    // Validate URL scheme (only allow http/https)
+    // Parse and validate URL
     let parsedUrl;
     try {
       parsedUrl = new URL(targetUrl);
     } catch (e) {
-      return res.status(400).json({ error: 'Invalid URL format' });
+      return res.status(400).json({ error: 'Invalid URL' });
     }
     
+    // Protocol check
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
       return res.status(403).json({ error: 'Protocol not allowed' });
     }
     
-    // Block internal/private networks for security
-    const hostname = parsedUrl.hostname.toLowerCase();
-    if (hostname === 'localhost' || 
-        hostname === '127.0.0.1' || 
-        hostname === '::1' ||
-        /^10\./.test(hostname) ||
-        /^192\.168\./.test(hostname) ||
-        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) {
-      return res.status(403).json({ error: 'Access to private networks denied' });
+    // Security: Block private networks
+    if (isPrivateIP(parsedUrl.hostname)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
     
-    // Build request options with improved connection handling
+    // Determine HTTPS
     const isHttps = parsedUrl.protocol === 'https:';
     
-    // Create custom agent with better connection pooling and performance
-    const agentOptions = {
-      keepAlive: true,
-      keepAliveMsecs: 30000,
-      maxSockets: 100, // Increased for better concurrency
-      maxFreeSockets: 20,
-      timeout: 60000,
-      rejectUnauthorized: false,
-      secureProtocol: 'TLS_method' // Support all TLS versions
-    };
+    // Build request options
+    const headers = sanitizeHeaders(req.headers);
+    headers.host = parsedUrl.host;
+    headers['user-agent'] = headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
+    headers['accept-encoding'] = 'identity'; // Don't accept compression we can't handle
     
-    const agent = isHttps 
-      ? new https.Agent(agentOptions)
-      : new http.Agent(agentOptions);
-    
-    // Build request headers
-    const forwardedHeaders = {
-      'accept': req.headers.accept || '*/*',
-      'accept-language': req.headers['accept-language'],
-      'accept-encoding': 'identity', // Don't accept compressed responses we can't handle
-      'cache-control': req.headers['cache-control'],
-      'if-modified-since': req.headers['if-modified-since'],
-      'if-none-match': req.headers['if-none-match'],
-      'range': req.headers.range, // Critical for video streaming!
-      'content-type': req.headers['content-type'],
-      'authorization': req.headers.authorization,
-    };
-    
-    // Clean undefined headers
-    Object.keys(forwardedHeaders).forEach(key => {
-      if (forwardedHeaders[key] === undefined) {
-        delete forwardedHeaders[key];
-      }
-    });
+    // Preserve range header for video seeking
+    if (req.headers.range) {
+      headers.range = req.headers.range;
+    }
     
     const requestOptions = {
       hostname: parsedUrl.hostname,
       port: parsedUrl.port || (isHttps ? 443 : 80),
       path: parsedUrl.pathname + parsedUrl.search,
       method: req.method,
-      headers: {
-        ...forwardedHeaders,
-        'host': parsedUrl.host,
-        'user-agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-      agent: agent,
-      timeout: 120000, // 2 minute timeout for large files
-      rejectUnauthorized: false,
+      headers,
+      agent: connectionPool.getAgent(isHttps),
+      timeout: REQUEST_TIMEOUT,
+      rejectUnauthorized: false
     };
     
-    // Only add referer and origin if they contain valid characters
-    try {
-      const safeReferer = targetUrl.replace(/[^\x20-\x7E]/g, '');
-      const safeOrigin = `${parsedUrl.protocol}//${parsedUrl.host}`.replace(/[^\x20-\x7E]/g, '');
-      if (safeReferer && /^[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/.test(safeReferer)) {
-        requestOptions.headers.referer = safeReferer;
-      }
-      if (safeOrigin && /^[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/.test(safeOrigin)) {
-        requestOptions.headers.origin = safeOrigin;
-      }
-    } catch (e) {
-      // Skip adding these headers if validation fails
-    }
-    
-    // Handle HEAD and OPTIONS requests
-    if (req.method === 'HEAD') {
-      const client = isHttps ? https : http;
-      const proxyReq = client.request(requestOptions, (proxyRes) => {
-        // Copy headers
-        const safeHeaders = ['content-type', 'content-length', 'last-modified', 'etag', 'cache-control'];
-        safeHeaders.forEach(header => {
-          if (proxyRes.headers[header]) {
-            res.setHeader(header, proxyRes.headers[header]);
-          }
-        });
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
-        res.status(proxyRes.statusCode || 200).end();
-      });
-      
-      proxyReq.on('error', handleProxyError);
-      proxyReq.end();
-      return;
-    }
-    
+    // Handle preflight OPTIONS
     if (req.method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
@@ -367,255 +448,222 @@ async function proxyHandler(req, res) {
       return res.status(204).end();
     }
     
-    // Collect request body for POST/PUT/PATCH
-    let requestBody = null;
-    const bodyPromise = new Promise((resolve) => {
-      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        const chunks = [];
-        req.on('data', chunk => chunks.push(chunk));
-        req.on('end', () => {
-          requestBody = Buffer.concat(chunks);
-          resolve();
-        });
-        req.on('error', () => resolve());
-      } else {
-        resolve();
-      }
-    });
-    
-    await bodyPromise;
-    
-    if (requestBody && requestBody.length > 0) {
-      requestOptions.headers['content-length'] = requestBody.length;
+    // Handle HEAD requests
+    if (req.method === 'HEAD') {
+      const client = isHttps ? https : http;
+      const proxyReq = client.request(requestOptions, (proxyRes) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+        
+        const forwardHeaders = ['content-type', 'content-length', 'last-modified', 'etag', 'cache-control', 'accept-ranges'];
+        for (const header of forwardHeaders) {
+          if (proxyRes.headers[header]) {
+            res.setHeader(header, proxyRes.headers[header]);
+          }
+        }
+        
+        res.status(proxyRes.statusCode || 200).end();
+      });
+      
+      proxyReq.on('error', (err) => {
+        console.error(`[PROXY:${requestId}] HEAD error:`, err.message);
+        if (!res.headersSent) {
+          res.status(502).json({ error: 'Proxy connection failed' });
+        }
+      });
+      
+      proxyReq.end();
+      return;
     }
     
-    // Make the proxied request
+    // Collect body for POST/PUT/PATCH
+    let requestBody = null;
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      requestBody = Buffer.concat(chunks);
+      if (requestBody.length > 0) {
+        requestOptions.headers['content-length'] = requestBody.length;
+      }
+    }
+    
+    // Make the proxy request
     const client = isHttps ? https : http;
     const proxyReq = client.request(requestOptions);
     
-    // Handle proxy request errors
-    function handleProxyError(err) {
-      console.error(`[PROXY ERROR] ${targetUrl}:`, err.message);
-      if (!res.headersSent) {
-        res.setHeader('Content-Type', 'application/json');
-        res.status(502).json({ 
-          error: 'Failed to connect to target server', 
-          details: err.message,
-          code: err.code
-        });
-      }
-    }
+    // Timeout handling
+    proxyReq.setTimeout(REQUEST_TIMEOUT, () => {
+      proxyReq.destroy(new Error('Request timeout'));
+    });
     
-    proxyReq.on('error', handleProxyError);
-    
-    proxyReq.on('timeout', () => {
-      proxyReq.destroy();
+    // Error handling
+    proxyReq.on('error', (err) => {
+      console.error(`[PROXY:${requestId}] Error:`, err.message);
       if (!res.headersSent) {
-        res.setHeader('Content-Type', 'application/json');
-        res.status(504).json({ error: 'Request timeout' });
+        res.status(502).json({ error: 'Proxy connection failed', details: err.message });
       }
     });
     
-    // Send request body if present
+    // Send body if present
     if (requestBody) {
       proxyReq.write(requestBody);
     }
     proxyReq.end();
     
-    // Handle response
-    proxyReq.on('response', async (proxyRes) => {
-      const contentType = proxyRes.headers['content-type'] || '';
-      const contentLength = proxyRes.headers['content-length'];
-      const contentEncoding = proxyRes.headers['content-encoding'];
-      
-      // Determine if we should rewrite content
-      const isHtml = contentType.includes('text/html');
-      const isCss = contentType.includes('text/css');
-      const isJs = contentType.includes('javascript') || contentType.includes('application/x-javascript');
-      const isJson = contentType.includes('application/json');
-      const isVideo = contentType.includes('video/');
-      const isAudio = contentType.includes('audio/');
-      const isImage = contentType.includes('image/');
-      
-      // Handle redirects
-      if ([301, 302, 303, 307, 308].includes(proxyRes.statusCode)) {
-        const location = proxyRes.headers.location;
-        if (location) {
-          try {
-            const proxiedLocation = rewriteUrl(location, targetUrl);
-            res.setHeader('Location', proxiedLocation);
-          } catch (e) {
-            res.setHeader('Location', location);
-          }
-        }
-        return res.status(proxyRes.statusCode).end();
-      }
-      
-      // Set CORS headers for all responses
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, X-Requested-With');
-      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      
-      // Copy safe response headers
-      const safeHeaders = [
-        'content-type', 'content-length', 'last-modified', 'etag', 
-        'cache-control', 'expires', 'accept-ranges', 'content-range',
-        'content-disposition'
-      ];
-      
-      for (const [key, value] of Object.entries(proxyRes.headers)) {
-        const lowerKey = key.toLowerCase();
-        // Skip dangerous or problematic headers
-        if (safeHeaders.includes(lowerKey) && value) {
-          res.setHeader(key, value);
-        }
-      }
-      
-      // Important: Don't set content-encoding if we're going to decompress and rewrite
-      if (contentEncoding) {
-        res.removeHeader('content-encoding');
-      }
-      
-      // Remove security headers that might block proxy functionality
-      res.removeHeader('strict-transport-security');
-      res.removeHeader('content-security-policy');
-      res.removeHeader('x-frame-options');
-      res.removeHeader('x-content-type-options');
-      
-      // Handle cookies - rewrite domains
-      if (proxyRes.headers['set-cookie']) {
-        const cookies = Array.isArray(proxyRes.headers['set-cookie']) 
-          ? proxyRes.headers['set-cookie'] 
-          : [proxyRes.headers['set-cookie']];
-        
-        const rewrittenCookies = cookies.map(cookie => {
-          // Remove domain and path restrictions
-          let rewritten = cookie
-            .replace(/;\s*domain=[^;]+/gi, '')
-            .replace(/;\s*path=[^;]+/gi, '; Path=/')
-            .replace(/;\s*secure/gi, '')
-            .replace(/;\s*samesite=[^;]+/gi, '');
-          return rewritten;
-        });
-        
-        res.setHeader('set-cookie', rewrittenCookies);
-      }
-      
-      // Send response status
-      res.status(proxyRes.statusCode || 200);
-      
-      // For video/audio/images, stream directly without modification for best performance
-      if (isVideo || isAudio || isImage) {
-        // Preserve content-range for range requests (critical for video seeking)
-        if (proxyRes.headers['content-range']) {
-          res.setHeader('Content-Range', proxyRes.headers['content-range']);
-        }
-        if (proxyRes.headers['accept-ranges']) {
-          res.setHeader('Accept-Ranges', proxyRes.headers['accept-ranges']);
-        }
-        proxyRes.pipe(res);
-        return;
-      }
-      
-      // For text-based content, we may need to decompress and rewrite
-      if (isHtml || isCss || isJs || isJson) {
-        let responseData = Buffer.alloc(0);
-        
-        // Create appropriate decompression stream
-        let decompressStream;
-        if (contentEncoding === 'gzip') {
-          decompressStream = zlib.createGunzip();
-        } else if (contentEncoding === 'deflate') {
-          decompressStream = zlib.createInflate();
-        } else if (contentEncoding === 'br') {
-          // Brotli - just pass through without decompression for now
-          decompressStream = null;
-        }
-        
-        const collectChunks = (chunk) => {
-          responseData = Buffer.concat([responseData, chunk]);
-        };
-        
-        const finishProcessing = () => {
-          try {
-            // Detect charset
-            let charset = 'utf-8';
-            const charsetMatch = contentType.match(/charset=([^;]+)/i);
-            if (charsetMatch) {
-              charset = charsetMatch[1].trim();
-            }
-            
-            // Convert to string for rewriting
-            let content;
-            try {
-              content = iconv.decode(responseData, charset);
-            } catch (e) {
-              content = responseData.toString('utf-8');
-            }
-            
-            // Rewrite content based on type
-            if (isHtml) {
-              content = rewriteHtml(content, targetUrl);
-            } else if (isCss) {
-              content = rewriteCss(content, targetUrl);
-            } else if (isJs) {
-              content = rewriteJs(content, targetUrl);
-            }
-            
-            // Send rewritten content
-            const outputBuffer = iconv.encode(content, 'utf-8');
-            res.setHeader('Content-Length', outputBuffer.length);
-            res.end(outputBuffer);
-            
-          } catch (rewriteError) {
-            console.error('[REWRITE ERROR]', rewriteError.message);
-            // Fallback: send original content
-            res.setHeader('Content-Length', responseData.length);
-            res.end(responseData);
-          }
-        };
-        
-        if (decompressStream) {
-          decompressStream.on('data', collectChunks);
-          decompressStream.on('end', finishProcessing);
-          decompressStream.on('error', () => {
-            // Decompression failed, send raw data
-            finishProcessing();
-          });
-          proxyRes.pipe(decompressStream);
-        } else {
-          // No decompression needed
-          proxyRes.on('data', collectChunks);
-          proxyRes.on('end', finishProcessing);
-        }
-      } else {
-        // Stream other content types directly
-        proxyRes.pipe(res);
-      }
-      
-      // Log successful proxy
-      const duration = Date.now() - startTime;
-      console.log(`[PROXY] ${req.method} ${targetUrl} -> ${proxyRes.statusCode} (${duration}ms)`);
+    // Wait for response
+    const proxyRes = await new Promise((resolve, reject) => {
+      proxyReq.on('response', resolve);
+      proxyReq.on('error', reject);
     });
     
+    // Handle redirects
+    if ([301, 302, 303, 307, 308].includes(proxyRes.statusCode)) {
+      const location = proxyRes.headers.location;
+      if (location) {
+        try {
+          const proxiedLocation = rewriteUrl(location, targetUrl);
+          res.setHeader('Location', proxiedLocation);
+        } catch (e) {
+          res.setHeader('Location', location);
+        }
+      }
+      return res.status(proxyRes.statusCode).end();
+    }
+    
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, X-Requested-With');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+    
+    // Get content info
+    const contentType = proxyRes.headers['content-type'] || '';
+    const contentEncoding = proxyRes.headers['content-encoding'];
+    const mediaType = getMediaType(contentType);
+    
+    // Remove security headers
+    const removeHeaders = ['strict-transport-security', 'content-security-policy', 'x-frame-options', 'x-content-type-options'];
+    for (const header of removeHeaders) {
+      delete proxyRes.headers[header];
+    }
+    
+    // Forward safe headers
+    const forwardHeaders = ['content-type', 'content-length', 'last-modified', 'etag', 'cache-control', 'expires', 'accept-ranges', 'content-range', 'content-disposition'];
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (forwardHeaders.includes(key.toLowerCase()) && value) {
+        res.setHeader(key, value);
+      }
+    }
+    
+    // Remove content-encoding if we're decompressing
+    if (contentEncoding) {
+      res.removeHeader('content-encoding');
+    }
+    
+    // Handle cookies
+    if (proxyRes.headers['set-cookie']) {
+      const cookies = Array.isArray(proxyRes.headers['set-cookie']) 
+        ? proxyRes.headers['set-cookie'] 
+        : [proxyRes.headers['set-cookie']];
+      
+      const rewritten = cookies.map(cookie => {
+        return cookie
+          .replace(/;\s*domain=[^;]+/gi, '')
+          .replace(/;\s*path=[^;]+/gi, '; Path=/')
+          .replace(/;\s*secure/gi, '')
+          .replace(/;\s*samesite=[^;]+/gi, '');
+      });
+      
+      res.setHeader('set-cookie', rewritten);
+    }
+    
+    // Set status
+    res.status(proxyRes.statusCode || 200);
+    
+    // Stream media directly (video, audio, images)
+    if (shouldStreamDirectly(contentType)) {
+      proxyRes.pipe(res);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[PROXY:${requestId}] ${req.method} ${targetUrl} -> ${proxyRes.statusCode} (${duration}ms) [STREAM]`);
+      return;
+    }
+    
+    // For text content, collect, decompress if needed, and rewrite
+    const chunks = [];
+    const decompress = createDecompressStream(contentEncoding);
+    
+    if (decompress) {
+      proxyRes.pipe(decompress);
+      decompress.on('data', chunk => chunks.push(chunk));
+    } else {
+      proxyRes.on('data', chunk => chunks.push(chunk));
+    }
+    
+    await new Promise(resolve => {
+      const endEvent = decompress ? 'end' : 'end';
+      (decompress || proxyRes).once(endEvent, resolve);
+    });
+    
+    const responseData = Buffer.concat(chunks);
+    
+    // Detect charset
+    let charset = 'utf-8';
+    const charsetMatch = contentType.match(/charset=([^;]+)/i);
+    if (charsetMatch) {
+      charset = charsetMatch[1].trim();
+    }
+    
+    // Convert to string
+    let content;
+    try {
+      content = iconv.decode(responseData, charset);
+    } catch (e) {
+      content = responseData.toString('utf-8');
+    }
+    
+    // Rewrite based on type
+    try {
+      if (mediaType === 'html') {
+        content = rewriter.rewriteHtml(content, targetUrl);
+      } else if (mediaType === 'css') {
+        content = rewriter.rewriteCss(content, targetUrl);
+      } else if (mediaType === 'js') {
+        content = rewriter.rewriteJs(content, targetUrl);
+      }
+    } catch (rewriteError) {
+      console.error(`[PROXY:${requestId}] Rewrite error:`, rewriteError.message);
+      // Continue with original content
+    }
+    
+    // Encode back
+    const outputBuffer = iconv.encode(content, 'utf-8');
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+    
+    const duration = Date.now() - startTime;
+    console.log(`[PROXY:${requestId}] ${req.method} ${targetUrl} -> ${proxyRes.statusCode} (${duration}ms)`);
+    
   } catch (error) {
-    console.error('[PROXY HANDLER ERROR]', error.message);
+    console.error(`[PROXY:${requestId}] Handler error:`, error.message);
     if (!res.headersSent) {
-      res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: 'Proxy error', details: error.message });
     }
   }
 }
 
+// ============================================================================
+// Exports
+// ============================================================================
+
 module.exports = {
   proxyHandler,
   rewriteUrl,
-  extractUrl,
+  extractUrlFromPath,
   encodeUrl,
   decodeUrl,
-  rewriteHtml,
-  rewriteCss,
-  rewriteJs
+  rewriter,
+  connectionPool
 };

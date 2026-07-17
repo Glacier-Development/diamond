@@ -1,30 +1,16 @@
 {
-  "auth": {
-    "enabled": true,
-    "jwtSecret": "diamond-proxy-secret-key-change-in-production-2024",
-    "sessionTimeout": 86400000,
-    "adminUsername": "admin"
-  },
-  "maintenance": {
-    "enabled": false,
-    "message": "Diamond Proxy is currently under maintenance. Please check back later."
-  },
   "motd": {
     "enabled": true,
-    "message": "Welcome to Diamond Proxy Phase 2!"
+    "message": "Welcome to Diamond Proxy v3!"
   },
   "rateLimit": {
-    "windowMs": 900000,
-    "maxRequests": 100
+    "windowMs": 60000,
+    "maxRequests": 200
   },
   "features": {
     "videoCodecs": ["h264", "vp9", "av1"],
     "audioCodecs": ["aac", "opus", "mp3"],
     "imageFormats": ["webp", "avif", "jpeg", "png", "svg"],
     "maxUploadSize": "10mb"
-  },
-  "database": {
-    "supabaseUrl": "https://db.wljezyyapnrcqwocpust.supabase.co",
-    "supabaseKey": "TCtsB6xJlYPH1zMl"
   }
 }
