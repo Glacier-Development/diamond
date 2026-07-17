@@ -7,232 +7,170 @@
   <meta name="theme-color" content="#1a1a2e">
   <title>Diamond Proxy</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <!-- MOTD Banner -->
-  <div id="motd-banner" class="motd-banner hidden">
-    <div class="motd-content">
-      <span class="motd-icon">📢</span>
-      <span id="motd-message"></span>
-      <button id="motd-close" class="motd-close">×</button>
-    </div>
-  </div>
-
-  <!-- Navigation -->
-  <nav class="navbar">
-    <div class="nav-brand">
-      <span class="logo">◆</span>
-      <span class="brand-text">Diamond <span class="version-badge">v3</span></span>
-    </div>
-    <ul class="nav-links">
-      <li><a href="#" data-page="home" class="active">Browser</a></li>
-      <li><a href="#" data-page="games">Games</a></li>
-      <li><a href="#" data-page="apps">Apps</a></li>
-      <li><a href="#" data-page="settings">Settings</a></li>
-    </ul>
-  </nav>
-
-  <!-- Main Content -->
-  <main id="app">
-    <!-- Home/Browser Page -->
-    <section id="page-home" class="page active">
-      <div class="browser-container">
-        <div class="omnibox-wrapper">
-          <form id="omnibox-form" class="omnibox-form">
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Browser Header -->
+    <header class="browser-header">
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <div id="tabsList" class="tabs-list"></div>
+        <button id="newTabBtn" class="new-tab-btn" aria-label="New Tab">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      
+      <!-- Navigation Controls -->
+      <div class="nav-controls">
+        <div class="nav-buttons">
+          <button id="backBtn" class="nav-btn" aria-label="Back">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+          <button id="forwardBtn" class="nav-btn" aria-label="Forward">
+            <i class="fas fa-arrow-right"></i>
+          </button>
+          <button id="refreshBtn" class="nav-btn" aria-label="Refresh">
+            <i class="fas fa-redo"></i>
+          </button>
+          <button id="homeBtn" class="nav-btn" aria-label="Home">
+            <i class="fas fa-home"></i>
+          </button>
+        </div>
+        
+        <div class="address-bar-container">
+          <i id="secureIcon" class="fas fa-lock secure-icon"></i>
+          <input 
+            type="text" 
+            id="addressBar" 
+            class="address-bar"
+            placeholder="Enter URL or search..."
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button id="goBtn" class="go-btn" aria-label="Go">
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+        
+        <div class="menu-buttons">
+          <button id="adminBtn" class="menu-btn" aria-label="Admin Panel">
+            <i class="fas fa-cog"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Browser Content -->
+    <main class="browser-content">
+      <!-- Welcome Screen -->
+      <div id="welcomeScreen" class="welcome-screen">
+        <div class="welcome-card">
+          <div class="logo-area">
+            <div class="logo-icon">◆</div>
+            <h1>Diamond Proxy v3</h1>
+            <p class="subtitle">High-performance web proxy</p>
+          </div>
+          
+          <div class="search-box-large">
             <input 
               type="text" 
-              id="omnibox-input" 
-              class="omnibox-input"
-              placeholder="Enter URL or search..."
+              id="mainSearchInput"
+              placeholder="Search Google or enter URL..."
               autocomplete="off"
               spellcheck="false"
-              autofocus
             >
-            <button type="submit" class="omnibox-btn" aria-label="Go">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
+            <button id="mainSearchBtn">
+              <i class="fas fa-search"></i> Search
             </button>
-          </form>
-          <p class="omnibox-hint">Press Enter to browse through Diamond Proxy</p>
-        </div>
-        
-        <!-- Quick Links -->
-        <div class="quick-links">
-          <h3 class="quick-links-title">Quick Access</h3>
-          <div class="quick-links-grid">
+          </div>
+          
+          <div class="quick-links">
             <button class="quick-link" data-url="https://www.google.com/">
-              <span class="quick-link-icon">G</span>
-              <span class="quick-link-name">Google</span>
+              <i class="fab fa-google"></i>
+              <span>Google</span>
             </button>
             <button class="quick-link" data-url="https://www.youtube.com/">
-              <span class="quick-link-icon">Y</span>
-              <span class="quick-link-name">YouTube</span>
+              <i class="fab fa-youtube"></i>
+              <span>YouTube</span>
             </button>
             <button class="quick-link" data-url="https://discord.com/">
-              <span class="quick-link-icon">D</span>
-              <span class="quick-link-name">Discord</span>
+              <i class="fab fa-discord"></i>
+              <span>Discord</span>
             </button>
             <button class="quick-link" data-url="https://www.reddit.com/">
-              <span class="quick-link-icon">R</span>
-              <span class="quick-link-name">Reddit</span>
+              <i class="fab fa-reddit"></i>
+              <span>Reddit</span>
             </button>
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- Games Page -->
-    <section id="page-games" class="page">
-      <div class="content-header">
-        <h1 class="page-title">Games</h1>
-        <p class="page-subtitle">Play games through the proxy</p>
-      </div>
-      <div id="games-grid" class="content-grid">
-        <!-- Games loaded dynamically from games.json -->
-        <div class="loading-spinner">Loading games...</div>
-      </div>
-    </section>
-
-    <!-- Apps Page -->
-    <section id="page-apps" class="page">
-      <div class="content-header">
-        <h1 class="page-title">Apps</h1>
-        <p class="page-subtitle">Access your favorite apps</p>
-      </div>
-      <div id="apps-grid" class="content-grid">
-        <!-- Apps loaded dynamically from apps.json -->
-        <div class="loading-spinner">Loading apps...</div>
-      </div>
-    </section>
-
-    <!-- Settings Page -->
-    <section id="page-settings" class="page">
-      <div class="content-header">
-        <h1 class="page-title">Settings</h1>
-        <p class="page-subtitle">Configure your proxy experience</p>
-      </div>
-      <div class="settings-container">
-        <div class="setting-group">
-          <h3 class="setting-group-title">Service Worker</h3>
-          <div class="setting-item">
-            <label for="sw-status">Status</label>
-            <span id="sw-status" class="setting-value">Checking...</span>
-          </div>
-          <button id="sw-register-btn" class="btn btn-primary">Register Service Worker</button>
-          <button id="sw-unregister-btn" class="btn btn-secondary">Unregister Service Worker</button>
-        </div>
-        
-        <div class="setting-group">
-          <h3 class="setting-group-title">About</h3>
-          <div class="setting-item">
-            <label>Version</label>
-            <span class="setting-value">1.0.0</span>
-          </div>
-          <div class="setting-item">
-            <label>Build</label>
-            <span class="setting-value">Production</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Browser Frame (hidden by default) -->
-  <div id="browser-frame" class="browser-frame hidden">
-    <div class="browser-toolbar">
-      <button id="browser-back" class="toolbar-btn" aria-label="Back">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <button id="browser-forward" class="toolbar-btn" aria-label="Forward">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
-      <button id="browser-refresh" class="toolbar-btn" aria-label="Refresh">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 4v6h-6M1 20v-6h6"/>
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-      </button>
-      <div class="browser-url-display" id="browser-url"></div>
-      <button id="browser-close" class="toolbar-btn btn-close" aria-label="Close">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-    <iframe id="browser-iframe" class="browser-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"></iframe>
+      
+      <!-- Proxy Iframe -->
+      <iframe id="proxyFrame" class="proxy-frame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation"></iframe>
+    </main>
   </div>
-
-  <!-- Admin Panel Modal (Ctrl+B to open) -->
-  <div id="admin-modal" class="modal hidden">
+  
+  <!-- Admin Panel Modal (Ctrl+Shift+B to open) -->
+  <div id="adminModal" class="modal-overlay">
     <div class="modal-content admin-modal-content">
-      <button id="admin-modal-close" class="modal-close">×</button>
-      <h2 class="modal-title">⚙️ Admin Panel</h2>
-      
-      <!-- Login Form -->
-      <div id="admin-login-section">
-        <p class="admin-info">Press Ctrl+B to toggle this panel. Enter password to access admin controls.</p>
-        <div class="form-group">
-          <label for="admin-password">Admin Password</label>
-          <input type="password" id="admin-password" placeholder="Enter password" autocomplete="current-password">
-        </div>
-        <p id="admin-login-error" class="form-error hidden"></p>
-        <button id="admin-login-btn" class="btn btn-primary btn-full">Login</button>
+      <div class="modal-header">
+        <h2><i class="fas fa-cog"></i> Admin Panel</h2>
+        <button id="closeAdmin" class="close-modal">×</button>
       </div>
       
-      <!-- Admin Controls (hidden until authenticated) -->
-      <div id="admin-controls-section" class="hidden">
-        <div class="admin-section">
-          <h3>MOTD Management</h3>
-          <div class="form-group">
-            <label for="admin-motd-message">Message of the Day</label>
-            <input type="text" id="admin-motd-message" placeholder="Enter MOTD message">
+      <div class="modal-body">
+        <!-- Login View -->
+        <div id="adminLoginView">
+          <p class="admin-info">Press Ctrl+Shift+B to toggle this panel. Enter password to access admin controls.</p>
+          <div class="control-group">
+            <label for="adminPassword">Admin Password</label>
+            <input 
+              type="password" 
+              id="adminPassword" 
+              class="admin-input"
+              placeholder="Enter password"
+              autocomplete="current-password"
+            >
+            <p id="adminError" class="error-msg"></p>
           </div>
-          <div class="toggle-row">
-            <label class="toggle-label">
-              <input type="checkbox" id="admin-motd-toggle">
-              <span class="toggle-slider"></span>
-              Enable MOTD
-            </label>
-          </div>
-          <button id="admin-set-motd" class="btn btn-primary">Update MOTD</button>
+          <button id="adminLoginBtn" class="admin-action-btn primary">Login</button>
         </div>
         
-        <div class="admin-section">
-          <h3>Maintenance Mode</h3>
-          <div class="form-group">
-            <label for="admin-maintenance-message">Maintenance Message</label>
-            <input type="text" id="admin-maintenance-message" placeholder="Enter maintenance message">
+        <!-- Admin Controls View -->
+        <div id="adminControlsView" class="hidden">
+          <div class="control-group">
+            <label for="motdInput">Message of the Day</label>
+            <input 
+              type="text" 
+              id="motdInput" 
+              class="admin-input"
+              placeholder="Enter MOTD message"
+            >
           </div>
+          
           <div class="toggle-row">
-            <label class="toggle-label">
-              <input type="checkbox" id="admin-maintenance-toggle">
-              <span class="toggle-slider"></span>
-              Enable Maintenance Mode
+            <span>Enable MOTD</span>
+            <label class="switch">
+              <input type="checkbox" id="motdToggle">
+              <span class="slider round"></span>
             </label>
           </div>
-          <button id="admin-update-maintenance" class="btn btn-warning">Update</button>
-        </div>
-        
-        <div class="admin-section">
-          <h3>Server Control</h3>
-          <button id="admin-restart" class="btn btn-danger">⚠️ Restart Server</button>
-          <button id="admin-logout" class="btn btn-secondary" style="margin-top: 10px;">Logout</button>
+          
+          <button id="saveMotdBtn" class="admin-action-btn">Save MOTD</button>
+          
+          <div class="toggle-row">
+            <span>Maintenance Mode</span>
+            <label class="switch">
+              <input type="checkbox" id="maintenanceToggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          
+          <button id="restartServerBtn" class="admin-action-btn danger">⚠️ Restart Server</button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Error Modal -->
-  <div id="error-modal" class="modal hidden">
-    <div class="modal-content">
-      <h2 class="modal-title">Error</h2>
-      <p id="error-message" class="modal-message"></p>
-      <button id="error-close" class="btn btn-primary">OK</button>
     </div>
   </div>
 
