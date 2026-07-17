@@ -1,256 +1,182 @@
-/**
- * Diamond Proxy - Browser/Omnibox Functionality
- * Handles URL input, proxy navigation, and iframe management
- */
+// Diamond Proxy v3 - URL Encoding/Decoding
 
-(function() {
-  'use strict';
+// Encode URL for proxy (encodeURIComponent with % replaced by -)
+function encodeUrl(url) {
+    return encodeURIComponent(url).replace(/%/g, '-');
+}
 
-  // DOM Elements
-  const elements = {
-    omniboxForm: document.getElementById('omnibox-form'),
-    omniboxInput: document.getElementById('omnibox-input'),
-    browserFrame: document.getElementById('browser-frame'),
-    browserIframe: document.getElementById('browser-iframe'),
-    browserUrl: document.getElementById('browser-url'),
-    browserBack: document.getElementById('browser-back'),
-    browserForward: document.getElementById('browser-forward'),
-    browserRefresh: document.getElementById('browser-refresh'),
-    browserClose: document.getElementById('browser-close'),
-    quickLinks: document.querySelectorAll('.quick-link')
-  };
-
-  // State
-  let currentUrl = '';
-  let historyStack = [];
-  let historyIndex = -1;
-
-  /**
-   * Initialize browser functionality
-   */
-  function init() {
-    setupOmnibox();
-    setupBrowserControls();
-    setupQuickLinks();
-  }
-
-  /**
-   * Setup omnibox form handling
-   */
-  function setupOmnibox() {
-    if (!elements.omniboxForm || !elements.omniboxInput) return;
-
-    elements.omniboxForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const url = elements.omniboxInput.value.trim();
-      if (url) {
-        navigateTo(url);
-      }
-    });
-
-    // Auto-focus on load
-    elements.omniboxInput.focus();
-  }
-
-  /**
-   * Setup browser toolbar controls
-   */
-  function setupBrowserControls() {
-    if (elements.browserClose) {
-      elements.browserClose.addEventListener('click', closeBrowserFrame);
-    }
-
-    if (elements.browserRefresh) {
-      elements.browserRefresh.addEventListener('click', refreshFrame);
-    }
-
-    if (elements.browserBack) {
-      elements.browserBack.addEventListener('click', goBack);
-    }
-
-    if (elements.browserForward) {
-      elements.browserForward.addEventListener('click', goForward);
-    }
-  }
-
-  /**
-   * Setup quick link buttons
-   */
-  function setupQuickLinks() {
-    elements.quickLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        const url = link.dataset.url;
-        if (url) {
-          navigateTo(url);
-        }
-      });
-    });
-  }
-
-  /**
-   * Navigate to a URL through the proxy
-   */
-  function navigateTo(url, title = '') {
-    // Normalize URL
-    let normalizedUrl = normalizeUrl(url);
-    
-    // Update history
-    if (normalizedUrl !== currentUrl) {
-      // Remove any forward history
-      historyStack = historyStack.slice(0, historyIndex + 1);
-      historyStack.push(normalizedUrl);
-      historyIndex = historyStack.length - 1;
-    }
-
-    currentUrl = normalizedUrl;
-    
-    // Update URL display
-    if (elements.browserUrl) {
-      elements.browserUrl.textContent = normalizedUrl;
-    }
-
-    // Encode URL for proxy path
-    const encodedUrl = encodeUrl(normalizedUrl);
-    const proxyUrl = `/proxy/${encodedUrl}`;
-
-    // Show browser frame
-    showBrowserFrame();
-
-    // Load in iframe
-    if (elements.browserIframe) {
-      elements.browserIframe.src = proxyUrl;
-    }
-
-    // Clear omnibox input
-    if (elements.omniboxInput) {
-      elements.omniboxInput.value = '';
-    }
-  }
-
-  /**
-   * Normalize and validate URL input
-   */
-  function normalizeUrl(input) {
-    let url = input.trim();
-    
-    // Check if it's already a valid URL
-    if (/^https?:\/\//i.test(url)) {
-      return url;
-    }
-    
-    // Check if it looks like a domain (contains dots, no spaces)
-    if (/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(url)) {
-      return 'https://' + url;
-    }
-    
-    // Otherwise treat as search query (use Google as default)
-    const encodedQuery = encodeURIComponent(url);
-    return `https://www.google.com/search?q=${encodedQuery}`;
-  }
-
-  /**
-   * Encode URL - use encodeURIComponent for proper handling
-   */
-  function encodeUrl(str) {
-    return encodeURIComponent(str);
-  }
-
-  /**
-   * Decode URL from encoded format
-   */
-  function decodeUrl(str) {
+// Decode URL from proxy (replace - with % then decodeURIComponent)
+function decodeUrl(encoded) {
     try {
-      return decodeURIComponent(str);
+        // First try direct replacement
+        let decoded = encoded.replace(/-/g, '%');
+        return decodeURIComponent(decoded);
     } catch (e) {
-      return str;
+        // If that fails, try multiple decoding passes
+        let result = encoded;
+        for (let i = 0; i < 3; i++) {
+            try {
+                result = result.replace(/-/g, '%');
+                return decodeURIComponent(result);
+            } catch (e) {
+                // Try without replacing if already decoded
+                try {
+                    return decodeURIComponent(encoded);
+                } catch (e2) {
+                    // Return as-is if all fails
+                    return encoded;
+                }
+            }
+        }
+        return encoded;
     }
-  }
+}
 
-  /**
-   * Show the browser frame overlay
-   */
-  function showBrowserFrame() {
-    if (elements.browserFrame) {
-      elements.browserFrame.classList.remove('hidden');
-    }
-  }
+// Get the proxy prefix from environment or default
+const PROXY_PREFIX = '/proxy/~/';
 
-  /**
-   * Close the browser frame
-   */
-  function closeBrowserFrame() {
-    if (elements.browserFrame) {
-      elements.browserFrame.classList.add('hidden');
+// Check if current page is running in proxy
+function isInProxy() {
+    return window.location.pathname.startsWith('/proxy/~/');
+}
+
+// Get the target URL from current location
+function getTargetUrl() {
+    const path = window.location.pathname;
+    if (!path.startsWith(PROXY_PREFIX)) {
+        return null;
     }
     
-    // Clear iframe src to stop any media/requests
-    if (elements.browserIframe) {
-      elements.browserIframe.src = 'about:blank';
+    const encoded = path.substring(PROXY_PREFIX.length);
+    return decodeUrl(encoded);
+}
+
+// Build proxy URL for a target
+function buildProxyUrl(targetUrl) {
+    if (!targetUrl) return '';
+    
+    // Handle protocol-relative URLs
+    if (targetUrl.startsWith('//')) {
+        targetUrl = window.location.protocol + targetUrl;
+    } else if (!targetUrl.match(/^https?:\/\//i)) {
+        // Relative URL - resolve against current target
+        const base = getTargetUrl();
+        if (base) {
+            try {
+                targetUrl = new URL(targetUrl, base).href;
+            } catch (e) {
+                targetUrl = 'https://' + targetUrl;
+            }
+        } else {
+            targetUrl = 'https://' + targetUrl;
+        }
     }
     
-    currentUrl = '';
-  }
+    return PROXY_PREFIX + encodeUrl(targetUrl);
+}
 
-  /**
-   * Refresh the current frame
-   */
-  function refreshFrame() {
-    if (elements.browserIframe && currentUrl) {
-      const encodedUrl = encodeUrl(currentUrl);
-      elements.browserIframe.src = `/proxy/${encodedUrl}`;
-    } else if (elements.browserIframe) {
-      elements.browserIframe.contentWindow.location.reload();
-    }
-  }
+// Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(registration => {
+                console.log('[SW] Service Worker registered:', registration.scope);
+            })
+            .catch(error => {
+                console.error('[SW] Registration failed:', error);
+            });
+        
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'PROXY_NAVIGATE') {
+                // Navigate to proxied URL
+                window.location.href = buildProxyUrl(event.data.url);
+            }
+        });
+    });
+}
 
-  /**
-   * Go back in history
-   */
-  function goBack() {
-    if (historyIndex > 0) {
-      historyIndex--;
-      const url = historyStack[historyIndex];
-      currentUrl = url;
-      
-      if (elements.browserUrl) {
-        elements.browserUrl.textContent = url;
-      }
-      
-      if (elements.browserIframe) {
-        const encodedUrl = encodeUrl(url);
-        elements.browserIframe.src = `/proxy/${encodedUrl}`;
-      }
-    }
-  }
-
-  /**
-   * Go forward in history
-   */
-  function goForward() {
-    if (historyIndex < historyStack.length - 1) {
-      historyIndex++;
-      const url = historyStack[historyIndex];
-      currentUrl = url;
-      
-      if (elements.browserUrl) {
-        elements.browserUrl.textContent = url;
-      }
-      
-      if (elements.browserIframe) {
-        const encodedUrl = encodeUrl(url);
-        elements.browserIframe.src = `/proxy/${encodedUrl}`;
-      }
-    }
-  }
-
-  // Expose functions globally
-  window.openBrowserFrame = navigateTo;
-  window.closeBrowserFrame = closeBrowserFrame;
-
-  // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+// Monkeypatch browser APIs when running inside proxy frame
+(function() {
+    // Only run in iframe context
+    if (window === top) return;
+    
+    const originalFetch = window.fetch;
+    const originalXHR = window.XMLHttpRequest;
+    const originalOpen = window.open;
+    const originalLocation = Object.getOwnPropertyDescriptor(Window.prototype, 'location');
+    
+    // Intercept fetch
+    window.fetch = function(...args) {
+        let url = args[0];
+        
+        if (typeof url === 'string') {
+            url = buildProxyUrl(url);
+            args[0] = url;
+        } else if (url instanceof Request) {
+            const newUrl = buildProxyUrl(url.url);
+            args[0] = new Request(newUrl, {
+                method: url.method,
+                headers: url.headers,
+                body: url.body,
+                mode: url.mode,
+                credentials: url.credentials,
+                cache: url.cache,
+                redirect: url.redirect,
+                referrer: url.referrer,
+                integrity: url.integrity
+            });
+        }
+        
+        return originalFetch.apply(this, args);
+    };
+    
+    // Intercept XMLHttpRequest
+    window.XMLHttpRequest = function() {
+        const xhr = new originalXHR();
+        const originalOpenXhr = xhr.open;
+        
+        xhr.open = function(method, url, ...rest) {
+            if (typeof url === 'string') {
+                url = buildProxyUrl(url);
+            }
+            return originalOpenXhr.call(this, method, url, ...rest);
+        };
+        
+        return xhr;
+    };
+    
+    // Intercept window.open
+    window.open = function(url, ...args) {
+        if (url) {
+            url = buildProxyUrl(url);
+        }
+        return originalOpen.call(this, url, ...args);
+    };
+    
+    // Intercept link clicks
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (link && link.href) {
+            // Don't interfere with special protocols
+            if (link.href.startsWith('javascript:') || 
+                link.href.startsWith('mailto:') || 
+                link.href.startsWith('tel:')) {
+                return;
+            }
+            
+            // Rewrite href to go through proxy
+            link.href = buildProxyUrl(link.getAttribute('href'));
+        }
+    }, true);
+    
+    // Intercept form submissions
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (form && form.action) {
+            form.action = buildProxyUrl(form.getAttribute('action'));
+        }
+    }, true);
+    
+    console.log('[Diamond] Proxy monkeypatches applied');
 })();
