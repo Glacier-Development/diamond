@@ -432,19 +432,29 @@ class ProxyEngine {
             // Extract encoded URL from path
             let encoded = requestedPath.replace(this.proxyPrefix, '');
             
-            // Always try to decode - URLs from browser will be encodeURIComponent'd
-            let prevDecoded;
-            let decodeAttempts = 0;
-            do {
-                prevDecoded = encoded;
-                try {
-                    encoded = decodeURIComponent(encoded.replace(/-/g, "%"));
-                } catch (e) {
-                    // Not encoded or invalid encoding, use as-is
-                    break;
-                }
-                decodeAttempts++;
-            } while (encoded !== prevDecoded && decodeAttempts < 5);
+            // Check if it's base64url encoded (new format) or percent-encoded (old format)
+            // Base64url contains only alphanumeric chars, - and _
+            if (/^[A-Za-z0-9_-]+$/.test(encoded)) {
+                // It's base64url encoded - decode it
+                // Add padding if necessary
+                const padding = '='.repeat((4 - encoded.length % 4) % 4);
+                const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/') + padding;
+                encoded = Buffer.from(base64, 'base64').toString('utf8');
+            } else {
+                // It's percent-encoded (legacy format) - decode it
+                let prevDecoded;
+                let decodeAttempts = 0;
+                do {
+                    prevDecoded = encoded;
+                    try {
+                        encoded = decodeURIComponent(encoded.replace(/-/g, "%"));
+                    } catch (e) {
+                        // Not encoded or invalid encoding, use as-is
+                        break;
+                    }
+                    decodeAttempts++;
+                } while (encoded !== prevDecoded && decodeAttempts < 5);
+            }
             
             // Ensure protocol
             if (!encoded.match(/^https?:\/\//i)) {

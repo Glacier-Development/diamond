@@ -1,43 +1,63 @@
-```javascript
+```gitignore
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
 # Dependencies
 node_modules/
-
-# Logs
-*.log
-
-# Environment variables
+venv/
+.venv/
 .env
 .env.local
-*.env.*
+.env.*
 
-# Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Build artifacts
+# Build directories
 dist/
 build/
-*.js.map
+target/
+.gradle/
 
-# Python cache (if any Python files exist in the project)
-__pycache__/
+# Python specific
 *.pyc
+__pycache__/
 *.pyo
 *.pyd
-
-# Coverage reports
+.Python
+*.so
+.Python
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.coverage
 coverage/
 htmlcov/
-*.coverage
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Compression files
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Compressed files
 *.zip
 *.gz
 *.tar
