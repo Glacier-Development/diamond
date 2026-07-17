@@ -1,0 +1,44 @@
+[
+  {
+    "title": "Google",
+    "description": "Search engine and technology giant",
+    "category": "search",
+    "tags": ["search", "email", "productivity"],
+    "proxy_url": "https://www.google.com"
+  },
+  {
+    "title": "YouTube",
+    "description": "Video sharing platform",
+    "category": "media",
+    "tags": ["video", "streaming", "entertainment"],
+    "proxy_url": "https://www.youtube.com"
+  },
+  {
+    "title": "Discord",
+    "description": "Voice, video and text chat for communities",
+    "category": "social",
+    "tags": ["chat", "voice", "gaming"],
+    "proxy_url": "https://discord.com"
+  },
+  {
+    "title": "Notion",
+    "description": "All-in-one workspace for notes and collaboration",
+    "category": "productivity",
+    "tags": ["notes", "docs", "collaboration"],
+    "proxy_url": "https://www.notion.so"
+  },
+  {
+    "title": "GitHub",
+    "description": "Code hosting and version control platform",
+    "category": "development",
+    "tags": ["code", "git", "development"],
+    "proxy_url": "https://github.com"
+  },
+  {
+    "title": "Spotify",
+    "description": "Music streaming service",
+    "category": "media",
+    "tags": ["music", "streaming", "audio"],
+    "proxy_url": "https://open.spotify.com"
+  }
+]

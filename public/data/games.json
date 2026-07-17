@@ -1,0 +1,44 @@
+[
+  {
+    "title": "2048",
+    "description": "Classic sliding tile puzzle game",
+    "category": "puzzle",
+    "tags": ["puzzle", "classic", "singleplayer"],
+    "proxy_url": "https://play2048.co"
+  },
+  {
+    "title": "Hextris",
+    "description": "Addictive puzzle game inspired by Tetris",
+    "category": "puzzle",
+    "tags": ["puzzle", "arcade", "skill"],
+    "proxy_url": "https://hextris.io"
+  },
+  {
+    "title": "Chess.com",
+    "description": "Play chess online with millions of players",
+    "category": "strategy",
+    "tags": ["chess", "strategy", "multiplayer"],
+    "proxy_url": "https://www.chess.com"
+  },
+  {
+    "title": "GeoGuessr",
+    "description": "Explore the world and guess locations",
+    "category": "educational",
+    "tags": ["geography", "educational", "exploration"],
+    "proxy_url": "https://www.geoguessr.com"
+  },
+  {
+    "title": "skribbl.io",
+    "description": "Multiplayer drawing and guessing game",
+    "category": "multiplayer",
+    "tags": ["drawing", "multiplayer", "party"],
+    "proxy_url": "https://skribbl.io"
+  },
+  {
+    "title": "Gartic Phone",
+    "description": "Telephone-style drawing game",
+    "category": "multiplayer",
+    "tags": ["drawing", "multiplayer", "fun"],
+    "proxy_url": "https://garticphone.com"
+  }
+]
