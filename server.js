@@ -11,11 +11,11 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize proxy engine
 const proxyEngine = new ProxyEngine({
-    proxyPrefix: '/proxy/'
+    proxyPrefix: '/proxy/~/'
 });
 
 // Set environment variable for client-side script
-process.env.PROXY_PREFIX = '/proxy/';
+process.env.PROXY_PREFIX = '/proxy/~/';
 
 // Admin password hash (change this!)
 const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update('DiamondAdmin2024!Secure').digest('hex');
@@ -44,7 +44,7 @@ const globalLimiter = rateLimit({
     // Skip rate limiting for static assets and proxy requests
     return req.path.startsWith('/css/') || 
            req.path.startsWith('/js/') || 
-           req.path.startsWith('/proxy/');
+           req.path.startsWith('/proxy/~/');
   }
 });
 app.use(globalLimiter);
@@ -89,14 +89,14 @@ app.use('/data', express.static(path.join(__dirname, 'data'), {
 }));
 
 // Proxy endpoint - handles all proxied requests with new engine
-app.all('/proxy/*', (req, res) => {
+app.all('/proxy/~/*', (req, res) => {
     proxyEngine.handleRequest(req, res);
 });
 
 // Also handle root proxy requests without trailing slash
 app.all('/proxy', (req, res) => {
     res.writeHead(400, { 'Content-Type': 'text/plain' });
-    res.end('Proxy requires a target URL. Use: /proxy/https://example.com');
+    res.end('Proxy requires a target URL. Use: /proxy/~/https://example.com');
 });
 
 // Health check endpoint
@@ -258,7 +258,7 @@ app.post('/api/rewrite', express.json(), (req, res) => {
     // Simple URL rewriting for API
     let proxiedUrl = url;
     if (url.match(/^https?:\/\//i)) {
-      proxiedUrl = '/proxy/' + encodeURIComponent(url);
+      proxiedUrl = '/proxy/~/' + encodeURIComponent(url);
     }
     res.json({ success: true, proxiedUrl: proxiedUrl });
   } catch (error) {
