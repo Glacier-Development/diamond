@@ -100,7 +100,8 @@ function decodeUrl(str) {
 }
 
 function extractUrlFromPath(path) {
-  const match = path.match(/^\/proxy\/(.+)$/);
+  // Handle both /proxy/~/base64url and legacy /proxy/encoded formats
+  const match = path.match(/^\/proxy\/(?:~\/)?(.+)$/);
   if (!match) {
     throw new Error('Invalid proxy path');
   }
@@ -115,7 +116,7 @@ function rewriteUrl(url, baseUrl = null) {
   if (!url || typeof url !== 'string') return url;
   
   // Already proxied
-  if (url.startsWith('/proxy/')) return url;
+  if (url.startsWith('/proxy/~/')) return url;
   
   // Skip special protocols
   const skipProtocols = ['data:', 'javascript:', 'mailto:', 'tel:', 'blob:', '#'];
@@ -149,7 +150,7 @@ function rewriteUrl(url, baseUrl = null) {
     return url;
   }
   
-  return `/proxy/${encodeUrl(url)}`;
+  return `/proxy/~/${encodeUrl(url)}`;
 }
 
 function rewriteSrcSet(srcset, baseUrl) {
@@ -232,15 +233,15 @@ class ContentRewriter {
           const _xhrSend = XMLHttpRequest.prototype.send;
           
           window.fetch = function(...args) {
-            if (args[0] && typeof args[0] === 'string' && !args[0].startsWith('/proxy/') && !args[0].startsWith('data:')) {
-              args[0] = '/proxy/' + btoa(args[0]).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+            if (args[0] && typeof args[0] === 'string' && !args[0].startsWith('/proxy/~/') && !args[0].startsWith('data:')) {
+              args[0] = '/proxy/~/' + btoa(args[0]).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
             }
             return _fetch.apply(this, args);
           };
           
           XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-            if (url && !url.startsWith('/proxy/') && !url.startsWith('data:')) {
-              url = '/proxy/' + btoa(url).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+            if (url && !url.startsWith('/proxy/~/') && !url.startsWith('data:')) {
+              url = '/proxy/~/' + btoa(url).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
             }
             this._diamondUrl = url;
             return _xhrOpen.call(this, method, url, ...rest);
@@ -260,7 +261,7 @@ class ContentRewriter {
     // Rewrite url() references
     return css.replace(/url\s*\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, url) => {
       url = url.trim();
-      if (url.startsWith('data:') || url.startsWith('/proxy/')) {
+      if (url.startsWith('data:') || url.startsWith('/proxy/~/')) {
         return match;
       }
       const rewritten = rewriteUrl(url, baseUrl);
@@ -275,13 +276,13 @@ class ContentRewriter {
     
     // Rewrite fetch calls
     result = result.replace(/fetch\s*\(\s*(["'`])([^"'`]+)\1/g, (match, quote, url) => {
-      if (url.startsWith('/proxy/') || url.startsWith('data:')) return match;
+      if (url.startsWith('/proxy/~/') || url.startsWith('data:')) return match;
       return `fetch("${rewriteUrl(url, baseUrl)}"`;
     });
     
     // Rewrite XMLHttpRequest.open
     result = result.replace(/\.open\s*\(\s*(["'][^"']+["'])\s*,\s*(["'])([^"']+)\2/g, (match, method, q, url) => {
-      if (url.startsWith('/proxy/') || url.startsWith('data:')) return match;
+      if (url.startsWith('/proxy/~/') || url.startsWith('data:')) return match;
       return `.open(${method}, "${rewriteUrl(url, baseUrl)}"`;
     });
     
