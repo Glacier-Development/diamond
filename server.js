@@ -93,6 +93,22 @@ app.all('/proxy/~/*', (req, res) => {
     proxyEngine.handleRequest(req, res);
 });
 
+// Legacy proxy endpoint - redirect to new format
+app.all('/proxy/*', (req, res) => {
+    // Redirect old-style encoded URLs to new base64url format
+    const legacyPath = req.path.replace('/proxy/', '');
+    // Try to decode the legacy URL format
+    try {
+        let decoded = legacyPath.replace(/-/g, '%');
+        decoded = decodeURIComponent(decoded);
+        // Redirect to new format
+        const newPath = '/proxy/~/' + Buffer.from(decoded).toString('base64url');
+        return res.redirect(307, newPath);
+    } catch (e) {
+        return res.status(400).send('Invalid URL encoding');
+    }
+});
+
 // Also handle root proxy requests without trailing slash
 app.all('/proxy', (req, res) => {
     res.writeHead(400, { 'Content-Type': 'text/plain' });

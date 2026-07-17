@@ -269,9 +269,9 @@ function loadUrlInFrame(url) {
     welcomeScreen.style.display = 'none';
     proxyFrame.classList.add('active');
     
-    // Encode URL for proxy
-    const encodedUrl = encodeURIComponent(url).replace(/%/g, '-');
-    proxyFrame.src = '/proxy/' + encodedUrl;
+    // Encode URL for proxy using base64url encoding
+    const encodedUrl = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    proxyFrame.src = '/proxy/~/'+ encodedUrl;
     
     secureIcon.className = 'fas fa-lock secure-icon';
 }
