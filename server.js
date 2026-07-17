@@ -3,11 +3,19 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-const { proxyHandler, rewriteUrl } = require('./src/proxy');
+const ProxyEngine = require('./src/proxy-engine');
 const settings = require('./config/settings.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize proxy engine
+const proxyEngine = new ProxyEngine({
+    proxyPrefix: '/proxy/'
+});
+
+// Set environment variable for client-side script
+process.env.PROXY_PREFIX = '/proxy/';
 
 // Admin password hash (change this!)
 const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update('DiamondAdmin2024!Secure').digest('hex');
@@ -25,16 +33,18 @@ app.use(cookieParser());
 app.use(express.json({ limit: settings.features.maxUploadSize }));
 app.use(express.urlencoded({ extended: true, limit: settings.features.maxUploadSize }));
 
-// Global rate limiter - more lenient for better UX
+// Global rate limiter - very lenient for testing
 const globalLimiter = rateLimit({
   windowMs: 60000, // 1 minute
-  max: 200, // 200 requests per minute
+  max: 500, // 500 requests per minute - much more lenient
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for static assets
-    return req.path.startsWith('/css/') || req.path.startsWith('/js/');
+    // Skip rate limiting for static assets and proxy requests
+    return req.path.startsWith('/css/') || 
+           req.path.startsWith('/js/') || 
+           req.path.startsWith('/proxy/');
   }
 });
 app.use(globalLimiter);
@@ -78,8 +88,16 @@ app.use('/data', express.static(path.join(__dirname, 'data'), {
   }
 }));
 
-// Proxy endpoint - handles all proxied requests
-app.all('/proxy/*', proxyHandler);
+// Proxy endpoint - handles all proxied requests with new engine
+app.all('/proxy/*', (req, res) => {
+    proxyEngine.handleRequest(req, res);
+});
+
+// Also handle root proxy requests without trailing slash
+app.all('/proxy', (req, res) => {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('Proxy requires a target URL. Use: /proxy/https://example.com');
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -237,8 +255,12 @@ app.post('/api/rewrite', express.json(), (req, res) => {
       return res.status(400).json({ error: 'Invalid URL provided' });
     }
     
-    const rewritten = rewriteUrl(url);
-    res.json({ success: true, proxiedUrl: rewritten });
+    // Simple URL rewriting for API
+    let proxiedUrl = url;
+    if (url.match(/^https?:\/\//i)) {
+      proxiedUrl = '/proxy/' + encodeURIComponent(url);
+    }
+    res.json({ success: true, proxiedUrl: proxiedUrl });
   } catch (error) {
     res.status(500).json({ error: 'Failed to rewrite URL' });
   }

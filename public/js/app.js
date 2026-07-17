@@ -314,9 +314,9 @@
   
   let isAdminAuthenticated = false;
   
-  // Toggle modal with Ctrl+B
+  // Toggle modal with Ctrl+Shift+B
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'b') {
+    if (e.ctrlKey && e.shiftKey && e.key === 'B') {
       e.preventDefault();
       toggleAdminModal();
     }
