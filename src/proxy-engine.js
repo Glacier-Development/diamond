@@ -114,7 +114,7 @@ class URLRewriter {
         try {
             if (proxiedURL.includes(this.proxyPrefix)) {
                 const encoded = proxiedURL.replace(this.proxyPrefix, '');
-                return decodeURIComponent(encoded);
+                return encoded.replace(/-/g, "%");
             }
         } catch (e) {}
         
@@ -438,7 +438,7 @@ class ProxyEngine {
             do {
                 prevDecoded = encoded;
                 try {
-                    encoded = decodeURIComponent(encoded);
+                    encoded = decodeURIComponent(encoded.replace(/-/g, "%"));
                 } catch (e) {
                     // Not encoded or invalid encoding, use as-is
                     break;

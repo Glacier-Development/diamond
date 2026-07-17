@@ -1,27 +1,35 @@
 /**
- * Diamond Service Worker - Interception Engine
+ * Diamond Service Worker - Interception Engine v2.0
  * 
- * Intercepts all network requests and routes them through the proxy.
- * Handles HTML rewriting, CSS/JS injection, WebSocket proxying, and more.
- * 
- * Optimized for low-end hardware with minimal overhead.
+ * Uses encodeURIComponent scheme matching browser.js exactly
+ * Prefix: /proxy/~/
  */
 
-const PROXY_PREFIX = '/proxy/';
-const SW_VERSION = '1.0.0';
+const PROXY_PREFIX = '/proxy/~/';
+const SW_VERSION = '2.0.0';
 
-// Base64url encoding/decoding (same as backend)
+// URL Encoding/Decoding - MUST MATCH browser.js EXACTLY
 function encodeUrl(str) {
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  if (!str) return '';
+  try {
+    const encoded = encodeURIComponent(str);
+    return encoded.replace(/%/g, '-');
+  } catch (e) {
+    console.error('[SW] Encode error:', e);
+    return '';
+  }
 }
 
-function decodeUrl(str) {
-  str = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (str.length % 4) str += '=';
-  return decodeURIComponent(escape(atob(str)));
+function decodeUrl(encoded) {
+  if (!encoded) return '';
+  try {
+    // Restore % signs
+    const withPercent = encoded.replace(/-/g, '%');
+    return decodeURIComponent(withPercent);
+  } catch (e) {
+    console.error('[SW] Decode error for:', encoded.substring(0, 100), e);
+    return '';
+  }
 }
 
 /**
@@ -29,35 +37,21 @@ function decodeUrl(str) {
  */
 function rewriteHtml(html, baseUrl) {
   if (!html || typeof html !== 'string') return html;
-  
+
   try {
     const url = new URL(baseUrl);
     const origin = url.origin;
-    
-    // Rewrite common URL attributes
-    const attrPatterns = [
-      /(href\s*=\s*["'])([^"']+)(["'])/gi,
-      /(src\s*=\s*["'])([^"']+)(["'])/gi,
-      /(action\s*=\s*=\s*["'])([^"']+)(["'])/gi,
-      /(data-src\s*=\s*["'])([^"']+)(["'])/gi,
-      /(poster\s*=\s*["'])([^"']+)(["'])/gi,
-    ];
-    
+
     let result = html;
-    
-    // Simple URL rewriting (production would use a proper HTML parser)
-    result = result.replace(/(href|src|action|data-src|poster)\s*=\s*(["'])([^"']+)(\2)/gi, (match, attr, quote, value) => {
-      // Skip data URLs, javascript:, mailto:, tel:, etc.
-      if (value.startsWith('data:') || 
-          value.startsWith('javascript:') || 
-          value.startsWith('mailto:') || 
-          value.startsWith('tel:') ||
-          value.startsWith('#') ||
-          value.startsWith('blob:')) {
+
+    // Rewrite href, src, action, etc attributes
+    result = result.replace(/(href|src|action|data-src|poster|data-href)\s*=\s*(["'])([^"']+)(\2)/gi, (match, attr, quote, value) => {
+      if (value.startsWith('data:') || value.startsWith('javascript:') || 
+          value.startsWith('mailto:') || value.startsWith('tel:') || 
+          value.startsWith('#') || value.startsWith('blob:')) {
         return match;
       }
-      
-      // Handle relative URLs
+
       let absoluteUrl;
       if (value.startsWith('//')) {
         absoluteUrl = url.protocol + value;
@@ -66,21 +60,30 @@ function rewriteHtml(html, baseUrl) {
       } else if (value.startsWith('http://') || value.startsWith('https://')) {
         absoluteUrl = value;
       } else {
-        // Relative to current path
         const basePath = url.pathname.substring(0, url.pathname.lastIndexOf('/') + 1);
         absoluteUrl = origin + basePath + value;
       }
-      
+
       const proxiedPath = PROXY_PREFIX + encodeUrl(absoluteUrl);
       return `${attr}=${quote}${proxiedPath}${quote}`;
     });
-    
-    // Rewrite srcset attributes (for responsive images)
+
+    // Rewrite srcset
     result = result.replace(/srcset\s*=\s*(["'])([^"']+)(\1)/gi, (match, quote, value) => {
       const rewritten = value.split(',').map(part => {
-        const [urlPart, descriptor] = part.trim().split(/\s+/);
-        if (!urlPart || urlPart.startsWith('data:')) return part;
+        const trimmed = part.trim();
+        const spaceIndex = trimmed.indexOf(' ');
+        let urlPart, descriptor;
+        if (spaceIndex === -1) {
+          urlPart = trimmed;
+          descriptor = '';
+        } else {
+          urlPart = trimmed.substring(0, spaceIndex);
+          descriptor = trimmed.substring(spaceIndex);
+        }
         
+        if (!urlPart || urlPart.startsWith('data:')) return part;
+
         let absoluteUrl;
         if (urlPart.startsWith('//')) {
           absoluteUrl = url.protocol + urlPart;
@@ -92,18 +95,18 @@ function rewriteHtml(html, baseUrl) {
           const basePath = url.pathname.substring(0, url.pathname.lastIndexOf('/') + 1);
           absoluteUrl = origin + basePath + urlPart;
         }
-        
+
         const proxiedPath = PROXY_PREFIX + encodeUrl(absoluteUrl);
-        return descriptor ? `${proxiedPath} ${descriptor}` : proxiedPath;
+        return descriptor ? `${proxiedPath}${descriptor}` : proxiedPath;
       }).join(', ');
-      
+
       return `srcset=${quote}${rewritten}${quote}`;
     });
-    
-    // Rewrite CSS url() references in inline styles
+
+    // Rewrite CSS url() in inline styles
     result = result.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (match, quote, value) => {
       if (value.startsWith('data:') || value.startsWith('#')) return match;
-      
+
       let absoluteUrl;
       if (value.startsWith('//')) {
         absoluteUrl = url.protocol + value;
@@ -115,16 +118,16 @@ function rewriteHtml(html, baseUrl) {
         const basePath = url.pathname.substring(0, url.pathname.lastIndexOf('/') + 1);
         absoluteUrl = origin + basePath + value;
       }
-      
+
       const proxiedPath = PROXY_PREFIX + encodeUrl(absoluteUrl);
       return `url(${proxiedPath})`;
     });
-    
-    // Inject base tag for relative URL resolution
+
+    // Inject base tag
     if (!result.includes('<base')) {
-      result = result.replace(/<head[^>]*>/i, `<head><base href="${PROXY_PREFIX}${encodeUrl(origin + url.pathname)}">`);
+      result = result.replace(/<head[^>]*>/i, `<head><base href="${origin}${url.pathname}">`);
     }
-    
+
     return result;
   } catch (e) {
     console.error('[SW] Failed to rewrite HTML:', e);
@@ -133,15 +136,15 @@ function rewriteHtml(html, baseUrl) {
 }
 
 /**
- * Rewrites CSS content to proxy URLs
+ * Rewrites CSS content
  */
 function rewriteCss(css, baseUrl) {
   if (!css) return css;
-  
+
   try {
     const url = new URL(baseUrl);
     const origin = url.origin;
-    
+
     return css.replace(/@import\s+url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (match, quote, value) => {
       let absoluteUrl = resolveUrl(value, url);
       const proxiedPath = PROXY_PREFIX + encodeUrl(absoluteUrl);
@@ -157,69 +160,60 @@ function rewriteCss(css, baseUrl) {
   }
 }
 
-/**
- * Resolves a relative URL against a base URL
- */
 function resolveUrl(value, baseUrl) {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (value.startsWith('//')) {
-    return baseUrl.protocol + value;
-  }
-  if (value.startsWith('/')) {
-    return baseUrl.origin + value;
-  }
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  if (value.startsWith('//')) return baseUrl.protocol + value;
+  if (value.startsWith('/')) return baseUrl.origin + value;
   const basePath = baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
   return baseUrl.origin + basePath + value;
 }
 
 /**
- * Main fetch event handler - intercepts all requests
+ * Main fetch handler
  */
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  
-  // Skip non-http(s) requests
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    return;
-  }
-  
-  // Skip requests to our own domain (static assets, API, etc.)
+
+  if (!['http:', 'https:'].includes(url.protocol)) return;
+
   if (url.origin === self.location.origin) {
-    // But handle proxied paths
     if (url.pathname.startsWith(PROXY_PREFIX)) {
       event.respondWith(handleProxiedRequest(request));
     }
     return;
   }
-  
-  // Intercept and proxy all external requests
+
   event.respondWith(interceptRequest(request));
 });
 
 /**
- * Handles requests that are already proxied (coming from /proxy/*)
+ * Handle proxied requests (/proxy/~/...)
  */
 async function handleProxiedRequest(request) {
   try {
     const url = new URL(request.url);
     const encodedPath = url.pathname.substring(PROXY_PREFIX.length);
-    
+
     if (!encodedPath) {
       return fetch(request);
     }
-    
-    // Decode to get original URL
+
     let originalUrl;
     try {
       originalUrl = decodeUrl(encodedPath);
+      
+      if (!originalUrl.startsWith('http://') && !originalUrl.startsWith('https://')) {
+        throw new Error('Invalid URL after decoding: ' + originalUrl);
+      }
     } catch (e) {
-      return new Response('Invalid encoded URL', { status: 400 });
+      console.error('[SW] Decode failed:', e, 'Encoded:', encodedPath.substring(0, 200));
+      return new Response(`Invalid encoded URL: ${e.message}`, { 
+        status: 400,
+        headers: { 'Content-Type': 'text/plain' }
+      });
     }
-    
-    // Create new request to the actual target
+
     const modifiedRequest = new Request(originalUrl, {
       method: request.method,
       headers: request.headers,
@@ -227,13 +221,10 @@ async function handleProxiedRequest(request) {
       mode: 'cors',
       cache: 'no-store',
     });
-    
+
     const response = await fetch(modifiedRequest);
-    
-    // Clone response for potential rewriting
     const contentType = response.headers.get('content-type') || '';
-    
-    // Handle different content types
+
     if (contentType.includes('text/html')) {
       const html = await response.text();
       const rewritten = rewriteHtml(html, originalUrl);
@@ -243,7 +234,7 @@ async function handleProxiedRequest(request) {
         headers: response.headers,
       });
     }
-    
+
     if (contentType.includes('text/css')) {
       const css = await response.text();
       const rewritten = rewriteCss(css, originalUrl);
@@ -253,25 +244,13 @@ async function handleProxiedRequest(request) {
         headers: response.headers,
       });
     }
-    
-    if (contentType.includes('application/javascript') || 
-        contentType.includes('text/javascript')) {
-      // Basic JS rewriting (more advanced would parse and rewrite fetch/XHR calls)
-      const js = await response.text();
-      // Could add JS rewriting here for advanced scenarios
-      return new Response(js, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-    }
-    
-    // Return other content types as-is (images, videos, fonts, etc.)
+
+    // Return JS and other content as-is
     return response;
-    
+
   } catch (error) {
     console.error('[SW] Proxy error:', error);
-    return new Response(`Proxy Error: ${error.message}`, { 
+    return new Response(`Proxy Error: ${error.message}`, {
       status: 502,
       headers: { 'Content-Type': 'text/plain' }
     });
@@ -279,16 +258,14 @@ async function handleProxiedRequest(request) {
 }
 
 /**
- * Intercepts external requests and routes them through our proxy
+ * Intercept external requests
  */
 async function interceptRequest(request) {
   try {
     const url = new URL(request.url);
-    
-    // Encode the URL and route through our proxy
     const encodedUrl = encodeUrl(url.toString());
     const proxiedUrl = `${self.location.origin}${PROXY_PREFIX}${encodedUrl}`;
-    
+
     const modifiedRequest = new Request(proxiedUrl, {
       method: request.method,
       headers: request.headers,
@@ -297,45 +274,32 @@ async function interceptRequest(request) {
       cache: 'no-store',
       redirect: 'follow',
     });
-    
+
     return await fetch(modifiedRequest);
-    
+
   } catch (error) {
     console.error('[SW] Intercept error:', error);
-    return fetch(request); // Fallback to direct request
+    return fetch(request);
   }
 }
 
-/**
- * WebSocket proxying support
- * Note: Full WebSocket proxying requires backend support
- */
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'WS_PROXY') {
-    // WebSocket proxying logic would go here
-    // This is a placeholder for future implementation
     console.log('[SW] WS_PROXY message received');
   }
 });
 
-/**
- * Service Worker installation
- */
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Diamond Service Worker v' + SW_VERSION);
-  self.skipWaiting(); // Activate immediately
+  console.log('[SW] Installing Diamond SW v' + SW_VERSION);
+  self.skipWaiting();
 });
 
-/**
- * Service Worker activation - clean up old caches
- */
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Diamond Service Worker v' + SW_VERSION);
+  console.log('[SW] Activating Diamond SW v' + SW_VERSION);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
-          // Keep only current version caches
           if (!name.startsWith('diamond-')) {
             return caches.delete(name);
           }
@@ -343,5 +307,5 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim(); // Take control of all clients immediately
+  self.clients.claim();
 });
