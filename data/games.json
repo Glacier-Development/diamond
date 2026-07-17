@@ -1,0 +1,56 @@
+[
+  {
+    "id": "2048",
+    "title": "2048",
+    "description": "Classic sliding tile puzzle game",
+    "thumbnail_url": "/data/thumbnails/2048.png",
+    "proxy_url": "https://play2048.co/",
+    "category": "puzzle",
+    "tags": ["classic", "puzzle", "math"]
+  },
+  {
+    "id": "hextris",
+    "title": "Hextris",
+    "description": "Fast-paced puzzle game inspired by Tetris",
+    "thumbnail_url": "/data/thumbnails/hextris.png",
+    "proxy_url": "https://hextris.io/",
+    "category": "puzzle",
+    "tags": ["fast", "puzzle", "color"]
+  },
+  {
+    "id": "chess",
+    "title": "Chess.com",
+    "description": "Play chess online with millions of players",
+    "thumbnail_url": "/data/thumbnails/chess.png",
+    "proxy_url": "https://www.chess.com/play/computer",
+    "category": "strategy",
+    "tags": ["strategy", "multiplayer", "classic"]
+  },
+  {
+    "id": "geoguessr",
+    "title": "GeoGuessr",
+    "description": "Explore the world and guess locations",
+    "thumbnail_url": "/data/thumbnails/geoguessr.png",
+    "proxy_url": "https://www.geoguessr.com/",
+    "category": "educational",
+    "tags": ["geography", "exploration", "learning"]
+  },
+  {
+    "id": "skribbl",
+    "title": "skribbl.io",
+    "description": "Multiplayer drawing and guessing game",
+    "thumbnail_url": "/data/thumbnails/skribbl.png",
+    "proxy_url": "https://skribbl.io/",
+    "category": "multiplayer",
+    "tags": ["drawing", "social", "fun"]
+  },
+  {
+    "id": "gartic",
+    "title": "Gartic Phone",
+    "description": "The telephone game with drawing",
+    "thumbnail_url": "/data/thumbnails/gartic.png",
+    "proxy_url": "https://garticphone.com/",
+    "category": "multiplayer",
+    "tags": ["drawing", "party", "social"]
+  }
+]
