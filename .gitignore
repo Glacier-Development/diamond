@@ -1,1 +1,31 @@
-(src/proxy-engine.js, public/js/app.js, public/js/browser.js, server.js)
+```gitignore
+# Dependencies
+node_modules/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+coverage/
+htmlcov/
+*.pyc
+__pycache__/
+
+# System files
+.DS_Store
+Thumbs.db
+```

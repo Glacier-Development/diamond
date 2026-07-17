@@ -290,3 +290,39 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('==>');
   console.log('///////////////////////////////////////////////////////////////');
 });
+
+
+// Admin settings endpoint (combined)
+app.get('/api/admin/settings', adminAuthMiddleware, (req, res) => {
+  res.json({
+    motd: motdMessage,
+    motdEnabled: motdEnabled,
+    maintenanceMode: maintenanceMode
+  });
+});
+
+// Session check endpoint
+app.get('/api/admin/session', (req, res) => {
+  const adminToken = req.cookies.admin_token;
+  
+  if (!adminToken) {
+    return res.json({ authenticated: false });
+  }
+  
+  try {
+    const [timestamp, hash] = adminToken.split(':');
+    const expectedHash = crypto.createHash('sha256').update(timestamp + ADMIN_PASSWORD_HASH).digest('hex');
+    
+    if (hash !== expectedHash) {
+      return res.json({ authenticated: false });
+    }
+    
+    if (Date.now() - parseInt(timestamp) > 8 * 60 * 60 * 1000) {
+      return res.json({ authenticated: false });
+    }
+    
+    res.json({ authenticated: true });
+  } catch (e) {
+    res.json({ authenticated: false });
+  }
+});
