@@ -1,7 +1,7 @@
 // Diamond Proxy v3 - Apps & Games Module
 
 // Get references to elements - these are defined in app.js, access via document or window
-let appsTabBtn, gamesTabBtn, appsScreen, gamesScreen, appsGrid, gamesGrid;
+let appsTabBtn, gamesTabBtn, settingsBtn, appsScreen, gamesScreen, settingsScreen, appsGrid, gamesGrid;
 
 let appsData = [];
 let gamesData = [];
@@ -11,8 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Get element references
     appsTabBtn = document.getElementById('appsTabBtn');
     gamesTabBtn = document.getElementById('gamesTabBtn');
+    settingsBtn = document.getElementById('settingsBtn');
     appsScreen = document.getElementById('appsScreen');
     gamesScreen = document.getElementById('gamesScreen');
+    settingsScreen = document.getElementById('settingsScreen');
     appsGrid = document.getElementById('appsGrid');
     gamesGrid = document.getElementById('gamesGrid');
     
@@ -27,6 +29,10 @@ function setupEventListeners() {
     
     if (gamesTabBtn) {
         gamesTabBtn.addEventListener('click', showGamesScreen);
+    }
+    
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', showSettingsScreen);
     }
 }
 
@@ -137,6 +143,14 @@ function showGamesScreen() {
     }
 }
 
+function showSettingsScreen() {
+    hideAllScreens();
+    if (settingsScreen) {
+        settingsScreen.classList.remove('hidden');
+        settingsScreen.classList.add('active');
+    }
+}
+
 function showWelcomeScreen() {
     hideAllScreens();
     const ws = document.getElementById('welcomeScreen');
@@ -205,6 +219,7 @@ function escapeHtml(text) {
 window.DiamondAppsGames = {
     showAppsScreen,
     showGamesScreen,
+    showSettingsScreen,
     showWelcomeScreen,
     launchAppOrGame,
     hideAllScreens
