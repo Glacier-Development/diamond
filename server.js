@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Initialize Scramjet-powered proxy engine with optimized settings
 const proxyEngine = new ScramjetEngine({
     proxyPrefix: '/proxy/~/',
-    pool: {
+    poolConfig: {
         maxSockets: 250,
         maxFreeSockets: 60,
         timeout: 45000,
