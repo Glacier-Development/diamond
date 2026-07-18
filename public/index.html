@@ -343,6 +343,7 @@
               <span class="slider round"></span>
             </label>
           </div>
+          <p id="maintenanceInfo" class="admin-info" style="margin-top: 10px; font-size: 12px; color: #888;">Toggle to enable/disable maintenance mode</p>
           
           <button id="restartServerBtn" class="admin-action-btn danger">⚠️ Restart Server</button>
         </div>
@@ -355,5 +356,31 @@
   <script src="/js/browser.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/apps-games.js"></script>
+  <script>
+    // Maintenance toggle handler
+    document.addEventListener('DOMContentLoaded', () => {
+      const maintenanceToggle = document.getElementById('maintenanceToggle');
+      if (maintenanceToggle) {
+        maintenanceToggle.addEventListener('change', async () => {
+          const enabled = maintenanceToggle.checked;
+          try {
+            const response = await fetch('/api/admin/maintenance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              alert('Failed to update maintenance mode: ' + (data.error || 'Unknown error'));
+              maintenanceToggle.checked = !enabled;
+            }
+          } catch (error) {
+            alert('Connection error');
+            maintenanceToggle.checked = !enabled;
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>

@@ -508,7 +508,8 @@ class ScramjetResponseProcessor {
 class ScramjetProxyEngine {
     constructor(options = {}) {
         this.proxyPrefix = options.proxyPrefix || '/proxy/~/';
-        this.pool = options.pool || globalPool;
+        const poolOptions = options.poolConfig || options.pool || {};
+        this.pool = new OptimizedConnectionPool(poolOptions);
         
         // Initialize rewriters
         this.urlRewriter = new ScramjetURLRewriter('', this.proxyPrefix);

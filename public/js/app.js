@@ -77,7 +77,7 @@ function setupEventListeners() {
     mainSearchBtn.addEventListener('click', () => {
         const query = mainSearchInput.value.trim();
         if (query) {
-            navigateToUrl(query);
+            handleSearchOrNavigate(query);
         }
     });
     
@@ -85,7 +85,7 @@ function setupEventListeners() {
         if (e.key === 'Enter') {
             const query = mainSearchInput.value.trim();
             if (query) {
-                navigateToUrl(query);
+                handleSearchOrNavigate(query);
             }
         }
     });
@@ -96,7 +96,7 @@ function setupEventListeners() {
             e.preventDefault();
             const url = link.getAttribute('data-url');
             if (url) {
-                navigateToUrl(url);
+                handleSearchOrNavigate(url);
             }
         });
     });
@@ -267,6 +267,49 @@ function navigateToUrl(inputValue = null) {
     }
     
     addressBar.value = url;
+    loadUrlInFrame(url);
+}
+
+// Handle search or navigation from various inputs
+function handleSearchOrNavigate(inputValue) {
+    let input = inputValue.trim();
+    
+    if (!input) return;
+    
+    // Check if it's a URL or search query
+    let url;
+    if (input.match(/^https?:\/\//i)) {
+        url = input;
+    } else if (input.includes('.') && !input.includes(' ')) {
+        url = 'https://' + input;
+    } else {
+        // It's a search query
+        url = 'https://www.google.com/search?q=' + encodeURIComponent(input);
+    }
+    
+    if (!activeTabId) {
+        createNewTab();
+    }
+    
+    // Update tab state
+    tabs[activeTabId].url = url;
+    tabs[activeTabId].title = url;
+    
+    // Update address bar
+    addressBar.value = url;
+    
+    // Update tab element
+    const tabElement = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
+    if (tabElement) {
+        const tabTitle = tabElement.querySelector('.tab-title');
+        try {
+            const domain = new URL(url).hostname.replace('www.', '');
+            tabTitle.textContent = domain;
+        } catch (e) {
+            tabTitle.textContent = url;
+        }
+    }
+    
     loadUrlInFrame(url);
 }
 
