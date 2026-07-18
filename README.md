@@ -38,3 +38,23 @@ Designed for instant deployment on Render, Railway, or any VPS:
 - Respects `PORT` environment variable
 - Standard `npm start` script
 - Static asset serving with proper caching headers
+
+## Runtime configuration
+
+Set `ADMIN_PASSWORD` before deploying to replace the compatibility default
+`DiamondAdmin2024!Secure`. Admin sessions are HTTP-only, same-site cookies and
+expire after eight hours. The restart button deliberately returns an explanatory
+response because restarts must be performed by the process manager (Docker,
+systemd, etc.).
+
+## Backend layout
+
+- `server.js` only composes HTTP middleware and starts the process.
+- `src/backend/proxy.js` owns URL decoding, streaming upstream requests, header
+  filtering, and reusable HTTP/HTTPS keep-alive pools.
+- `src/backend/admin.js` owns authenticated settings endpoints and serialized
+  writes to `config/settings.json`.
+
+The proxy intentionally streams response bodies instead of buffering them. Its
+separate LIFO keep-alive pools reduce connection and TLS setup work for repeated
+origins while bounding active and idle socket counts.
