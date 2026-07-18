@@ -48,9 +48,20 @@ function setupEventListeners() {
     newTabBtn.addEventListener('click', createNewTab);
     
     // Navigation
-    goBtn.addEventListener('click', navigateToUrl);
+    goBtn.addEventListener('click', () => {
+        navigateToUrl();
+    });
     addressBar.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') navigateToUrl();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            navigateToUrl();
+        }
+    });
+    addressBar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            navigateToUrl();
+        }
     });
     
     backBtn.addEventListener('click', () => {
@@ -83,6 +94,17 @@ function setupEventListeners() {
     
     mainSearchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = mainSearchInput.value.trim();
+            if (query) {
+                handleSearchOrNavigate(query);
+            }
+        }
+    });
+    
+    mainSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
             const query = mainSearchInput.value.trim();
             if (query) {
                 handleSearchOrNavigate(query);
@@ -99,6 +121,17 @@ function setupEventListeners() {
                 handleSearchOrNavigate(url);
             }
         });
+        
+        // Also handle keyboard events for accessibility
+        link.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const url = link.getAttribute('data-url');
+                if (url) {
+                    handleSearchOrNavigate(url);
+                }
+            }
+        });
     });
     
     // Admin panel
@@ -109,7 +142,16 @@ function setupEventListeners() {
     
     adminLoginBtn.addEventListener('click', adminLogin);
     adminPassword.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') adminLogin();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            adminLogin();
+        }
+    });
+    adminPassword.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            adminLogin();
+        }
     });
     
     saveMotdBtn.addEventListener('click', saveMotd);
