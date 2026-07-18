@@ -1,4 +1,4 @@
-// Diamond Proxy v3 - Main Application Logic
+// Diamond v3 - Main Application Logic
 
 let tabs = [];
 let activeTabId = null;

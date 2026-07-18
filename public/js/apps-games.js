@@ -1,4 +1,4 @@
-// Diamond Proxy v3 - Apps & Games Module
+// Diamond v3 - Apps & Games Module
 
 // Get references to elements - these are defined in app.js, access via document or window
 let appsTabBtn, gamesTabBtn, settingsBtn, appsScreen, gamesScreen, settingsScreen, appsGrid, gamesGrid;

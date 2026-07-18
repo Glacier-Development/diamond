@@ -1,22 +1,22 @@
 {
   "name": "diamond-proxy",
   "version": "5.0.0",
-  "description": "High-performance Rocket proxy with libcurl transport + wisp",
+  "description": "Diamond glass browser with Scramjet, Wisp, and libcurl transport support",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check src/backend/admin.js && node --check src/backend/proxy.js && node --check public/js/app.js && node --check public/js/apps-games.js && node --check public/js/browser.js"
+    "check": "node --check server.js && node --check src/backend/admin.js && node --check src/backend/proxy.js && node --check src/backend/scramjet.js && node --check public/js/app.js && node --check public/js/apps-games.js && node --check public/js/browser.js && node --check public/js/settings.js"
   },
   "keywords": [
-    "proxy",
-    "rocket",
+    "diamond",
+    "scramjet",
     "wisp",
     "libcurl"
   ],
-  "author": "GlacierDevelopment",
+  "author": "Diamond",
   "license": "MIT",
   "dependencies": {
     "cookie-parser": "^1.4.7",

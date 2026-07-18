@@ -1,5 +1,5 @@
 /**
- * Diamond Proxy - URL Codec (Shared between SW and Page)
+ * Diamond - URL Codec (Shared between SW and Page)
  * Uses encodeURIComponent with % replaced by - for URL safety
  */
 

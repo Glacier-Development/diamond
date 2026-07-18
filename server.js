@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createAdminRouter } from './src/backend/admin.js';
 import { createProxyRouter } from './src/backend/proxy.js';
+import { attachScramjet } from './src/backend/scramjet.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicPath = path.join(__dirname, 'public');
@@ -19,11 +20,14 @@ export function createApp() {
   createAdminRouter(app, { settingsPath });
   const proxy = createProxyRouter(app);
 
-  app.get('/health', (req, res) => res.json({ status: 'ok', version: '5.1.0', engine: 'streaming HTTP proxy with keep-alive pools' }));
+  app.get('/health', (req, res) => res.json({ status: 'ok', version: '5.2.0', engine: 'Diamond Scramjet runtime with streaming fallback' }));
   app.use('/data', express.static(path.join(__dirname, 'data'), { maxAge: '5m', immutable: false }));
+  return { app, proxy };
+}
+
+function attachStaticAndNotFound(app) {
   app.use(express.static(publicPath, { maxAge: '1h', etag: true, lastModified: true }));
   app.use((req, res) => res.status(404).sendFile(path.join(publicPath, '404.html')));
-  return { app, proxy };
 }
 
 export function startServer(port = process.env.PORT || 3000) {
@@ -31,7 +35,10 @@ export function startServer(port = process.env.PORT || 3000) {
   const server = createServer(app);
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
-  server.listen(port, '0.0.0.0', () => console.log(`Diamond Proxy listening on port ${port}`));
+  attachScramjet(app, server).then((state) => {
+    attachStaticAndNotFound(app);
+    server.listen(port, '0.0.0.0', () => console.log(`Diamond listening on port ${port} (scramjet=${state.scramjet}, wisp=${state.wisp})`));
+  });
   server.on('close', proxy.close);
   return server;
 }

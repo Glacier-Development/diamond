@@ -1,4 +1,4 @@
-// Diamond Proxy v3 - URL Encoding/Decoding and Browser Handling
+// Diamond v3 - URL Encoding/Decoding and Browser Handling
 
 // Encode URL for proxy using base64url encoding (matching server-side)
 function encodeUrl(url) {
