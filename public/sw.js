@@ -1,82 +1,45 @@
-// Diamond Proxy v3 - Service Worker
+/* Diamond service worker with Scramjet-first boot and local fallback. */
+const DIAMOND_PROXY_PREFIX = '/proxy~/';
+const LEGACY_PROXY_PREFIX = '/proxy/~/';
 
-const PROXY_PREFIX = '/proxy/~/';
+try {
+  importScripts('/scramjet/scramjet.all.js');
+  const scramjet = new self.ScramjetServiceWorker();
+  scramjet.route(({ url }) => url.pathname.startsWith(DIAMOND_PROXY_PREFIX));
+  self.__diamondScramjet = scramjet;
+} catch (error) {
+  console.warn('[Diamond] Scramjet bundle unavailable, using streaming fallback:', error.message);
+}
 
-// Encode URL for proxy
 function encodeUrl(url) {
-    return encodeURIComponent(url).replace(/%/g, '-');
+  const bytes = new TextEncoder().encode(url);
+  let binary = '';
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-// Decode URL from proxy
-function decodeUrl(encoded) {
-    try {
-        let decoded = encoded.replace(/-/g, '%');
-        return decodeURIComponent(decoded);
-    } catch (e) {
-        return encoded;
-    }
+function normalizeTarget(url) {
+  if (!url) return '';
+  if (url.startsWith('//')) return `https:${url}`;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
 }
 
-// Build proxy URL
-function buildProxyUrl(targetUrl) {
-    if (!targetUrl) return '';
-    
-    if (targetUrl.startsWith('//')) {
-        targetUrl = 'https:' + targetUrl;
-    } else if (!targetUrl.match(/^https?:\/\//i)) {
-        targetUrl = 'https://' + targetUrl;
-    }
-    
-    return PROXY_PREFIX + encodeUrl(targetUrl);
+function fallbackProxyUrl(url) {
+  return `${LEGACY_PROXY_PREFIX}${encodeUrl(normalizeTarget(url))}`;
 }
 
-self.addEventListener('install', (event) => {
-    console.log('[SW] Installing...');
-    self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-    console.log('[SW] Activated');
-    event.waitUntil(self.clients.claim());
-});
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 self.addEventListener('fetch', (event) => {
-    const url = event.request.url;
-    
-    // Only handle requests within our scope that need rewriting
-    if (!url.includes(self.location.origin)) {
-        return;
-    }
-    
-    // Don't intercept proxy requests themselves to avoid loops
-    if (url.includes(PROXY_PREFIX)) {
-        return;
-    }
-    
-    // Don't intercept static assets
-    if (url.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i)) {
-        return;
-    }
-    
-    // For navigation requests, check if we should redirect through proxy
-    if (event.request.mode === 'navigate') {
-        // Let normal navigation pass through
-        return;
-    }
-    
-    // For subresource requests that might be cross-origin
-    event.respondWith(
-        fetch(event.request).catch(() => {
-            // If fetch fails, try through proxy
-            const proxiedUrl = buildProxyUrl(url);
-            return fetch(proxiedUrl);
-        })
-    );
+  if (self.__diamondScramjet) return;
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin || requestUrl.pathname.startsWith('/proxy/')) return;
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(fetch(event.request).catch(() => fetch(fallbackProxyUrl(event.request.url))));
 });
 
-// Handle messages from main thread
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });

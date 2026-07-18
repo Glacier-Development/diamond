@@ -1,4 +1,4 @@
-// Diamond Proxy v3 - Settings Module
+// Diamond v3 - Settings Module
 
 let swRegistration = null;
 
@@ -12,12 +12,14 @@ const resetSwBtn = document.getElementById('resetSwBtn');
 const unregisterSwBtn = document.getElementById('unregisterSwBtn');
 const clearDataBtn = document.getElementById('clearDataBtn');
 const swStatus = document.getElementById('swStatus');
+const proxyEngineInfo = document.getElementById('proxyEngineInfo');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadSettings();
     checkServiceWorkerStatus();
+    loadEngineInfo();
 });
 
 function setupEventListeners() {
@@ -55,6 +57,24 @@ function setupEventListeners() {
     
     if (clearDataBtn) {
         clearDataBtn.addEventListener('click', clearBrowsingData);
+    }
+}
+
+async function loadEngineInfo() {
+    if (!proxyEngineInfo) return;
+    try {
+        const response = await fetch('/api/engine');
+        if (!response.ok) return;
+        const info = await response.json();
+        const active = [
+            info.scramjet ? 'Scramjet' : null,
+            info.wisp ? 'Wisp' : null,
+            info.libcurl ? 'libcurl transport' : null,
+            info.webAssemblyRewriter ? 'WebAssembly rewriter' : null
+        ].filter(Boolean);
+        proxyEngineInfo.textContent = active.length ? active.join(' + ') : 'Streaming fallback (Scramjet packages unavailable)';
+    } catch (error) {
+        proxyEngineInfo.textContent = 'Streaming fallback';
     }
 }
 
@@ -272,5 +292,6 @@ window.DiamondSettings = {
     resetServiceWorker,
     unregisterServiceWorker,
     clearBrowsingData,
+    loadEngineInfo,
     showSettingsScreen
 };
