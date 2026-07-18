@@ -125,6 +125,7 @@ function showAppsScreen() {
     hideAllScreens();
     if (appsScreen) {
         appsScreen.classList.remove('hidden');
+        appsScreen.classList.add('active');
     }
 }
 
@@ -132,6 +133,7 @@ function showGamesScreen() {
     hideAllScreens();
     if (gamesScreen) {
         gamesScreen.classList.remove('hidden');
+        gamesScreen.classList.add('active');
     }
 }
 
@@ -140,16 +142,33 @@ function showWelcomeScreen() {
     const ws = document.getElementById('welcomeScreen');
     if (ws) {
         ws.classList.remove('hidden');
+        ws.classList.add('active');
     }
 }
 
 function hideAllScreens() {
     const ws = document.getElementById('welcomeScreen');
-    if (ws) ws.classList.add('hidden');
-    if (appsScreen) appsScreen.classList.add('hidden');
-    if (gamesScreen) gamesScreen.classList.add('hidden');
+    if (ws) {
+        ws.classList.add('hidden');
+        ws.classList.remove('active');
+    }
+    if (appsScreen) {
+        appsScreen.classList.add('hidden');
+        appsScreen.classList.remove('active');
+    }
+    if (gamesScreen) {
+        gamesScreen.classList.add('hidden');
+        gamesScreen.classList.remove('active');
+    }
+    const settingsScreen = document.getElementById('settingsScreen');
+    if (settingsScreen) {
+        settingsScreen.classList.add('hidden');
+        settingsScreen.classList.remove('active');
+    }
     const pf = document.getElementById('proxyFrame');
-    if (pf) pf.classList.remove('active');
+    if (pf) {
+        pf.classList.remove('active');
+    }
 }
 
 function launchAppOrGame(url, title) {
@@ -187,5 +206,6 @@ window.DiamondAppsGames = {
     showAppsScreen,
     showGamesScreen,
     showWelcomeScreen,
-    launchAppOrGame
+    launchAppOrGame,
+    hideAllScreens
 };
