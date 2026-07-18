@@ -3,14 +3,21 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-const ProxyEngine = require('./src/proxy-engine');
+const ScramjetEngine = require('./scramjet-engine');
 const settings = require('./config/settings.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const proxyEngine = new ProxyEngine({
-    proxyPrefix: '/proxy/~/'
+// Initialize Scramjet-powered proxy engine with optimized settings
+const proxyEngine = new ScramjetEngine({
+    proxyPrefix: '/proxy/~/',
+    pool: {
+        maxSockets: 250,
+        maxFreeSockets: 60,
+        timeout: 45000,
+        freeSocketTimeout: 25000
+    }
 });
 
 process.env.PROXY_PREFIX = '/proxy/~/';
