@@ -4,9 +4,8 @@ let swRegistration = null;
 
 // DOM Elements
 const settingsBtn = document.getElementById('settingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const closeSettings = document.getElementById('closeSettings');
-const themeSelect = document.getElementById('themeSelect');
+const settingsScreen = document.getElementById('settingsScreen');
+const glassIntensitySelect = document.getElementById('glassIntensitySelect');
 const animationsToggle = document.getElementById('animationsToggle');
 const checkSwBtn = document.getElementById('checkSwBtn');
 const resetSwBtn = document.getElementById('resetSwBtn');
@@ -22,21 +21,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // Settings modal
+    // Settings button - show settings screen
     if (settingsBtn) {
-        settingsBtn.addEventListener('click', toggleSettingsModal);
+        settingsBtn.addEventListener('click', showSettingsScreen);
     }
     
-    if (closeSettings) {
-        closeSettings.addEventListener('click', () => {
-            settingsModal.classList.remove('active');
-        });
-    }
-    
-    // Theme selection
-    if (themeSelect) {
-        themeSelect.addEventListener('change', (e) => {
-            setTheme(e.target.value);
+    // Glass intensity select
+    if (glassIntensitySelect) {
+        glassIntensitySelect.addEventListener('change', (e) => {
+            setGlassIntensity(e.target.value);
         });
     }
     
@@ -63,46 +56,54 @@ function setupEventListeners() {
     if (clearDataBtn) {
         clearDataBtn.addEventListener('click', clearBrowsingData);
     }
-    
-    // Close modal on outside click
-    if (settingsModal) {
-        settingsModal.addEventListener('click', (e) => {
-            if (e.target === settingsModal) {
-                settingsModal.classList.remove('active');
-            }
-        });
+}
+
+function showSettingsScreen() {
+    hideAllScreens();
+    if (settingsScreen) {
+        settingsScreen.classList.remove('hidden');
+        settingsScreen.classList.add('active');
     }
 }
 
-function toggleSettingsModal() {
-    if (settingsModal) {
-        settingsModal.classList.toggle('active');
-        if (settingsModal.classList.contains('active')) {
-            checkServiceWorkerStatus();
-        }
+function hideAllScreens() {
+    const ws = document.getElementById('welcomeScreen');
+    if (ws) {
+        ws.classList.add('hidden');
+        ws.classList.remove('active');
+    }
+    const apps = document.getElementById('appsScreen');
+    if (apps) {
+        apps.classList.add('hidden');
+        apps.classList.remove('active');
+    }
+    const games = document.getElementById('gamesScreen');
+    if (games) {
+        games.classList.add('hidden');
+        games.classList.remove('active');
+    }
+    if (settingsScreen) {
+        settingsScreen.classList.add('hidden');
+        settingsScreen.classList.remove('active');
+    }
+    const pf = document.getElementById('proxyFrame');
+    if (pf) {
+        pf.classList.remove('active');
     }
 }
 
 function loadSettings() {
-    // Load theme from localStorage
-    const savedTheme = localStorage.getItem('diamond_theme') || 'glassy';
-    setTheme(savedTheme);
-    
     // Load animations setting
     const animationsEnabled = localStorage.getItem('diamond_animations') !== 'false';
     setAnimationsEnabled(animationsEnabled);
 }
 
-function setTheme(theme) {
-    document.body.classList.remove('theme-glassy', 'theme-modern');
-    document.body.classList.add(`theme-${theme}`);
-    localStorage.setItem('diamond_theme', theme);
+function setGlassIntensity(intensity) {
+    document.body.classList.remove('glass-light', 'glass-medium', 'glass-strong');
+    document.body.classList.add(`glass-${intensity}`);
+    localStorage.setItem('diamond_glass_intensity', intensity);
     
-    if (themeSelect) {
-        themeSelect.value = theme;
-    }
-    
-    console.log(`[Settings] Theme set to: ${theme}`);
+    console.log(`[Settings] Glass intensity set to: ${intensity}`);
 }
 
 function setAnimationsEnabled(enabled) {
@@ -265,10 +266,11 @@ async function clearBrowsingData() {
 
 // Export functions for global access
 window.DiamondSettings = {
-    setTheme,
+    setGlassIntensity,
     setAnimationsEnabled,
     checkServiceWorkerStatus,
     resetServiceWorker,
     unregisterServiceWorker,
-    clearBrowsingData
+    clearBrowsingData,
+    showSettingsScreen
 };

@@ -271,20 +271,38 @@ function navigateToUrl(inputValue = null) {
 }
 
 function loadUrlInFrame(url) {
-    const ws1 = document.getElementById('welcomeScreen'); if (ws1) ws1.classList.add('hidden');
-    proxyFrame.classList.add('active');
+    const ws1 = document.getElementById('welcomeScreen');
+    if (ws1) ws1.classList.add('hidden');
+    const appsScreen = document.getElementById('appsScreen');
+    if (appsScreen) appsScreen.classList.add('hidden');
+    const gamesScreen = document.getElementById('gamesScreen');
+    if (gamesScreen) gamesScreen.classList.add('hidden');
+    const settingsScreen = document.getElementById('settingsScreen');
+    if (settingsScreen) settingsScreen.classList.add('hidden');
     
+    proxyFrame.classList.add('active');
+
     // Encode URL for proxy using base64url encoding
     const encodedUrl = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    proxyFrame.src = '/proxy/~/'+ encodedUrl;
-    
+    proxyFrame.src = '/proxy/~/' + encodedUrl;
+
     secureIcon.className = 'fas fa-lock secure-icon';
 }
 
 function showWelcomeScreen() {
     proxyFrame.classList.remove('active');
     proxyFrame.src = 'about:blank';
-    const ws2 = document.getElementById('welcomeScreen'); if (ws2) ws2.classList.remove('hidden');
+    
+    // Hide all screens and show welcome screen
+    const appsScreen = document.getElementById('appsScreen');
+    if (appsScreen) appsScreen.classList.add('hidden');
+    const gamesScreen = document.getElementById('gamesScreen');
+    if (gamesScreen) gamesScreen.classList.add('hidden');
+    const settingsScreen = document.getElementById('settingsScreen');
+    if (settingsScreen) settingsScreen.classList.add('hidden');
+    
+    const ws2 = document.getElementById('welcomeScreen');
+    if (ws2) ws2.classList.remove('hidden');
     
     if (activeTabId && tabs[activeTabId]) {
         tabs[activeTabId].url = '';
