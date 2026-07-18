@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Diamond - High-performance web proxy optimized for low-end hardware">
-  <meta name="theme-color" content="#1a1a2e">
-  <title>Diamond Proxy</title>
+  <meta name="description" content="Diamond - High-performance Scramjet proxy with enhanced speed and compatibility">
+  <meta name="theme-color" content="#000000">
+  <title>Diamond Proxy | Scramjet Engine</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- Background Effects -->
   <div class="bg-gradient"></div>
-  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
   
   <!-- App Container -->
   <div class="app-container">
@@ -32,16 +32,16 @@
       <!-- Navigation Controls -->
       <div class="nav-controls">
         <div class="nav-buttons">
-          <button id="backBtn" class="nav-btn" aria-label="Back">
+          <button id="backBtn" class="nav-btn" aria-label="Back" title="Back">
             <i class="fas fa-arrow-left"></i>
           </button>
-          <button id="forwardBtn" class="nav-btn" aria-label="Forward">
+          <button id="forwardBtn" class="nav-btn" aria-label="Forward" title="Forward">
             <i class="fas fa-arrow-right"></i>
           </button>
-          <button id="refreshBtn" class="nav-btn" aria-label="Refresh">
+          <button id="refreshBtn" class="nav-btn" aria-label="Refresh" title="Refresh">
             <i class="fas fa-redo"></i>
           </button>
-          <button id="homeBtn" class="nav-btn" aria-label="Home">
+          <button id="homeBtn" class="nav-btn" aria-label="Home" title="Home">
             <i class="fas fa-home"></i>
           </button>
         </div>
@@ -52,11 +52,11 @@
             type="text" 
             id="addressBar" 
             class="address-bar"
-            placeholder="Enter URL or search..."
+            placeholder="Search or enter URL..."
             autocomplete="off"
             spellcheck="false"
           >
-          <button id="goBtn" class="go-btn" aria-label="Go">
+          <button id="goBtn" class="go-btn" aria-label="Go" title="Go">
             <i class="fas fa-arrow-right"></i>
           </button>
         </div>
@@ -71,7 +71,7 @@
           <button id="settingsBtn" class="menu-btn" aria-label="Settings" title="Settings">
             <i class="fas fa-cog"></i>
           </button>
-          <button id="adminBtn" class="menu-btn" aria-label="Admin Panel" title="Admin">
+          <button id="adminBtn" class="menu-btn admin-badge" aria-label="Admin Panel" title="Admin">
             <i class="fas fa-shield-alt"></i>
           </button>
         </div>
@@ -81,44 +81,71 @@
     <!-- Browser Content -->
     <main class="browser-content">
       <!-- Welcome Screen -->
-      <div id="welcomeScreen" class="welcome-screen">
+      <div id="welcomeScreen" class="welcome-screen active">
         <div class="welcome-card">
           <div class="logo-area">
+            <div class="logo-glow"></div>
             <div class="logo-icon">◆</div>
-            <h1>Diamond Proxy v3</h1>
-            <p class="subtitle">High-performance web proxy</p>
+            <h1>Diamond Proxy</h1>
+            <p class="subtitle">Powered by Scramjet Engine</p>
+            <div class="version-badge">v4.0 Ultra</div>
           </div>
           
           <div class="search-box-large">
+            <i class="fas fa-search search-icon"></i>
             <input 
               type="text" 
               id="mainSearchInput"
-              placeholder="Search Google or enter URL..."
+              placeholder="Search Google or type a URL..."
               autocomplete="off"
               spellcheck="false"
             >
-            <button id="mainSearchBtn">
-              <i class="fas fa-search"></i> Search
+            <button id="mainSearchBtn" class="search-action-btn">
+              <span>Search</span>
+              <i class="fas fa-arrow-right"></i>
             </button>
           </div>
           
           <div class="quick-links">
             <button class="quick-link" data-url="https://www.google.com/">
-              <i class="fab fa-google"></i>
+              <div class="quick-link-icon"><i class="fab fa-google"></i></div>
               <span>Google</span>
             </button>
             <button class="quick-link" data-url="https://www.youtube.com/">
-              <i class="fab fa-youtube"></i>
+              <div class="quick-link-icon"><i class="fab fa-youtube"></i></div>
               <span>YouTube</span>
             </button>
             <button class="quick-link" data-url="https://discord.com/">
-              <i class="fab fa-discord"></i>
+              <div class="quick-link-icon"><i class="fab fa-discord"></i></div>
               <span>Discord</span>
             </button>
             <button class="quick-link" data-url="https://www.reddit.com/">
-              <i class="fab fa-reddit"></i>
+              <div class="quick-link-icon"><i class="fab fa-reddit"></i></div>
               <span>Reddit</span>
             </button>
+            <button class="quick-link" data-url="https://twitter.com/">
+              <div class="quick-link-icon"><i class="fab fa-twitter"></i></div>
+              <span>Twitter</span>
+            </button>
+            <button class="quick-link" data-url="https://chat.openai.com/">
+              <div class="quick-link-icon"><i class="fas fa-robot"></i></div>
+              <span>ChatGPT</span>
+            </button>
+          </div>
+          
+          <div class="features-showcase">
+            <div class="feature-item">
+              <i class="fas fa-bolt"></i>
+              <span>Ultra Fast</span>
+            </div>
+            <div class="feature-item">
+              <i class="fas fa-shield-alt"></i>
+              <span>Secure</span>
+            </div>
+            <div class="feature-item">
+              <i class="fas fa-globe"></i>
+              <span>Global</span>
+            </div>
           </div>
         </div>
       </div>
@@ -127,10 +154,10 @@
       <div id="appsScreen" class="apps-screen hidden">
         <div class="screen-header">
           <h2><i class="fas fa-th-large"></i> Apps</h2>
-          <p>Browse and launch popular web applications</p>
+          <p>Launch your favorite web applications instantly</p>
         </div>
         <div id="appsGrid" class="apps-grid">
-          <!-- Apps will be loaded dynamically -->
+          <!-- Apps loaded dynamically -->
         </div>
       </div>
       
@@ -141,7 +168,7 @@
           <p>Play games directly in your browser</p>
         </div>
         <div id="gamesGrid" class="games-grid">
-          <!-- Games will be loaded dynamically -->
+          <!-- Games loaded dynamically -->
         </div>
       </div>
       
@@ -149,7 +176,7 @@
       <div id="settingsScreen" class="settings-screen hidden">
         <div class="screen-header">
           <h2><i class="fas fa-cog"></i> Settings</h2>
-          <p>Customize your Diamond Proxy experience</p>
+          <p>Customize your Diamond experience</p>
         </div>
         
         <div class="settings-content">
@@ -158,21 +185,22 @@
             <h3><i class="fas fa-palette"></i> Appearance</h3>
             <div class="setting-item">
               <div class="setting-info">
-                <label>UI Theme</label>
-                <p class="setting-description">Choose between Glassy or Modern sleek design</p>
+                <label>Glass Effect Intensity</label>
+                <p class="setting-description">Adjust the blur strength of glass elements</p>
               </div>
               <div class="setting-control">
-                <select id="themeSelect" class="setting-select">
-                  <option value="glassy">Glassy</option>
-                  <option value="modern">Modern</option>
+                <select id="glassIntensitySelect" class="setting-select">
+                  <option value="light">Light</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="strong">Strong</option>
                 </select>
               </div>
             </div>
             
             <div class="setting-item">
               <div class="setting-info">
-                <label>Animations</label>
-                <p class="setting-description">Enable smooth transitions and effects</p>
+                <label>Smooth Animations</label>
+                <p class="setting-description">Enable fluid transitions and effects</p>
               </div>
               <label class="switch">
                 <input type="checkbox" id="animationsToggle" checked>
@@ -186,28 +214,28 @@
             <h3><i class="fas fa-microchip"></i> Service Worker</h3>
             <div class="setting-item">
               <div class="setting-info">
-                <label>Service Worker Status</label>
+                <label>Status</label>
                 <p class="setting-description" id="swStatus">Checking...</p>
               </div>
               <div class="setting-control">
-                <button id="checkSwBtn" class="setting-btn">Check Status</button>
+                <button id="checkSwBtn" class="setting-btn">Check</button>
               </div>
             </div>
             
             <div class="setting-item">
               <div class="setting-info">
                 <label>Reset Service Worker</label>
-                <p class="setting-description">Unregister and re-register the service worker</p>
+                <p class="setting-description">Re-register the service worker</p>
               </div>
               <div class="setting-control">
-                <button id="resetSwBtn" class="setting-btn warning">Reset SW</button>
+                <button id="resetSwBtn" class="setting-btn warning">Reset</button>
               </div>
             </div>
             
             <div class="setting-item">
               <div class="setting-info">
                 <label>Unregister Service Worker</label>
-                <p class="setting-description">Completely remove the service worker</p>
+                <p class="setting-description">Remove the service worker completely</p>
               </div>
               <div class="setting-control">
                 <button id="unregisterSwBtn" class="setting-btn danger">Unregister</button>
@@ -221,17 +249,17 @@
             <div class="setting-item">
               <div class="setting-info">
                 <label>Clear Browsing Data</label>
-                <p class="setting-description">Clear all cached proxy data and cookies</p>
+                <p class="setting-description">Clear cached data and cookies</p>
               </div>
               <div class="setting-control">
-                <button id="clearDataBtn" class="setting-btn warning">Clear Data</button>
+                <button id="clearDataBtn" class="setting-btn warning">Clear</button>
               </div>
             </div>
             
             <div class="setting-item">
               <div class="setting-info">
-                <label>Proxy Engine Info</label>
-                <p class="setting-description" id="proxyEngineInfo">Diamond Proxy Engine v3.0</p>
+                <label>Engine Info</label>
+                <p class="setting-description" id="proxyEngineInfo">Scramjet Engine v4.0</p>
               </div>
             </div>
           </div>
@@ -241,14 +269,14 @@
             <h3><i class="fas fa-info-circle"></i> About</h3>
             <div class="setting-item">
               <div class="setting-info">
-                <label>Diamond Proxy Version</label>
-                <p class="setting-description">v3.0.0 - Phase 3 Update</p>
+                <label>Version</label>
+                <p class="setting-description">v4.0.0 - Scramjet Ultra</p>
               </div>
             </div>
             <div class="setting-item">
               <div class="setting-info">
                 <label>Features</label>
-                <p class="setting-description">Glassy/Modern UI, Games & Apps tabs, Advanced proxy engine, Service worker controls</p>
+                <p class="setting-description">Black glass UI, Scramjet engine, Enhanced compatibility</p>
               </div>
             </div>
           </div>
@@ -264,14 +292,14 @@
   <div id="adminModal" class="modal-overlay">
     <div class="modal-content admin-modal-content">
       <div class="modal-header">
-        <h2><i class="fas fa-cog"></i> Admin Panel</h2>
+        <h2><i class="fas fa-shield-alt"></i> Admin Panel</h2>
         <button id="closeAdmin" class="close-modal">×</button>
       </div>
       
       <div class="modal-body">
         <!-- Login View -->
         <div id="adminLoginView">
-          <p class="admin-info">Press Ctrl+Shift+B to toggle this panel. Enter password to access admin controls.</p>
+          <p class="admin-info">Press Ctrl+Shift+B to toggle. Enter password to access.</p>
           <div class="control-group">
             <label for="adminPassword">Admin Password</label>
             <input 
@@ -311,92 +339,12 @@
           <div class="toggle-row">
             <span>Maintenance Mode</span>
             <label class="switch">
-              <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenance()">
+              <input type="checkbox" id="maintenanceToggle">
               <span class="slider round"></span>
             </label>
           </div>
           
           <button id="restartServerBtn" class="admin-action-btn danger">⚠️ Restart Server</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings Panel Modal -->
-  <div id="settingsModal" class="modal-overlay">
-    <div class="modal-content settings-modal-content">
-      <div class="modal-header">
-        <h2><i class="fas fa-cog"></i> Settings</h2>
-        <button id="closeSettings" class="close-modal">×</button>
-      </div>
-      
-      <div class="modal-body">
-        <div class="settings-sections">
-          <!-- Appearance Section -->
-          <div class="settings-section">
-            <h3><i class="fas fa-palette"></i> Appearance</h3>
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>UI Theme</label>
-                <p class="setting-description">Choose between Glassy or Modern sleek design</p>
-              </div>
-              <select id="themeSelect" class="setting-select">
-                <option value="glassy">Glassy</option>
-                <option value="modern">Modern</option>
-              </select>
-            </div>
-            
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>Animations</label>
-                <p class="setting-description">Enable smooth transitions and effects</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="animationsToggle" checked>
-                <span class="slider round"></span>
-              </label>
-            </div>
-          </div>
-          
-          <!-- Service Worker Section -->
-          <div class="settings-section">
-            <h3><i class="fas fa-microchip"></i> Service Worker</h3>
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>Service Worker Status</label>
-                <p class="setting-description" id="swStatus">Checking...</p>
-              </div>
-              <button id="checkSwBtn" class="setting-btn">Check Status</button>
-            </div>
-            
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>Reset Service Worker</label>
-                <p class="setting-description">Unregister and re-register the service worker</p>
-              </div>
-              <button id="resetSwBtn" class="setting-btn warning">Reset SW</button>
-            </div>
-            
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>Unregister Service Worker</label>
-                <p class="setting-description">Completely remove the service worker</p>
-              </div>
-              <button id="unregisterSwBtn" class="setting-btn danger">Unregister</button>
-            </div>
-          </div>
-          
-          <!-- Proxy Section -->
-          <div class="settings-section">
-            <h3><i class="fas fa-globe"></i> Proxy Settings</h3>
-            <div class="setting-item">
-              <div class="setting-info">
-                <label>Clear Browsing Data</label>
-                <p class="setting-description">Clear all cached proxy data and cookies</p>
-              </div>
-              <button id="clearDataBtn" class="setting-btn warning">Clear Data</button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
