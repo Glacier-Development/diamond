@@ -16,6 +16,10 @@
   "author": "GlacierDevelopment",
   "license": "MIT",
   "dependencies": {
+    "@mercuryworkshop/proxy-transports": "^1.0.2",
+    "@mercuryworkshop/scramjet": "^1.1.0",
+    "@mercuryworkshop/scramjet-controller": "^0.0.14",
+    "@mercuryworkshop/wisp-js": "^0.4.1",
     "@supabase/supabase-js": "^2.109.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

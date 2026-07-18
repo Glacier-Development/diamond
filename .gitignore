@@ -1,12 +1,20 @@
-```javascript
+```
 # Dependencies
 node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
 
 # Logs and temp files
 *.log
 *.tmp
 
-# Environment variables
+# Backup files
+*.bak
+
+# Environment
 .env
 .env.local
 *.env.*
@@ -15,41 +23,31 @@ node_modules/
 .vscode/
 .idea/
 
-# Build outputs
-dist/
-build/
-target/
-
-# Python artifacts
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Java artifacts
+# Java
 *.class
 *.jar
 *.war
 *.ear
-*.war
-*.sar
 *.nar
-*.klib
-*.so
-*.dll
-*.dylib
+target/
 
-# C/C++ artifacts
+# C/C++
 *.o
-*.a
 *.obj
-*.out
-*.exe
-*.dll
+*.a
+*.lib
 *.so
+*.dll
 *.dylib
+*.exe
 
-# Compressed files
+# Compression
 *.zip
 *.gz
 *.tar
@@ -68,55 +66,12 @@ __pycache__/
 *.Z
 *.lz
 *.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# OS generated files
+# System
 .DS_Store
 Thumbs.db
-
-# MyPy cache
-.mypy_cache/
-# PyTest cache
-.pytest_cache/
-
-# Gradle
-.gradle/
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.swp
-*.swo
-
-# Distribution / packaging
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Testing
-nosetests.xml
-coverage.xml
-*.cover
-
-# Documentation
-docs/_build/
-
-# IDE specific
-.vs/
-*.swp
-*.swo
-*~
 ```
-
-Wait, let me reconsider this. The modified files are only `server.js` and `src/proxy-engine.js` - these are JavaScript source files. Looking at the change list, there are no build artifacts, dependency directories, or temporary files mentioned in the changes. The changes only show source code files (.js files).
-
-According to rule #6: "If the change list contains ONLY source or config files (e.g., `.py`, `.js`, `.java`, `.go`, `.cpp`, `.h`, `.md`, `.txt`, `.json`, `.yml`, `.yaml`, `.toml`, `.cfg`, `.ini`, etc.) and NO build artifacts, dependencies, or temp files — output an EMPTY .gitignore"
-
-Since the changes only include JavaScript source files (`server.js` and `src/proxy-engine.js`) with no build artifacts, dependencies, or temp files, I should output an empty .gitignore.
-
-(empty)
