@@ -338,14 +338,26 @@ function showWelcomeScreen() {
     
     // Hide all screens and show welcome screen
     const appsScreen = document.getElementById('appsScreen');
-    if (appsScreen) appsScreen.classList.add('hidden');
+    if (appsScreen) {
+        appsScreen.classList.add('hidden');
+        appsScreen.classList.remove('active');
+    }
     const gamesScreen = document.getElementById('gamesScreen');
-    if (gamesScreen) gamesScreen.classList.add('hidden');
+    if (gamesScreen) {
+        gamesScreen.classList.add('hidden');
+        gamesScreen.classList.remove('active');
+    }
     const settingsScreen = document.getElementById('settingsScreen');
-    if (settingsScreen) settingsScreen.classList.add('hidden');
+    if (settingsScreen) {
+        settingsScreen.classList.add('hidden');
+        settingsScreen.classList.remove('active');
+    }
     
     const ws2 = document.getElementById('welcomeScreen');
-    if (ws2) ws2.classList.remove('hidden');
+    if (ws2) {
+        ws2.classList.remove('hidden');
+        ws2.classList.add('active');
+    }
     
     if (activeTabId && tabs[activeTabId]) {
         tabs[activeTabId].url = '';
