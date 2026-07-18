@@ -25,14 +25,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupEventListeners() {
     if (appsTabBtn) {
         appsTabBtn.addEventListener('click', showAppsScreen);
+        appsTabBtn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showAppsScreen();
+            }
+        });
     }
     
     if (gamesTabBtn) {
         gamesTabBtn.addEventListener('click', showGamesScreen);
+        gamesTabBtn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showGamesScreen();
+            }
+        });
     }
     
     if (settingsBtn) {
         settingsBtn.addEventListener('click', showSettingsScreen);
+        settingsBtn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showSettingsScreen();
+            }
+        });
     }
 }
 
