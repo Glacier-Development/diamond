@@ -169,15 +169,6 @@ function showSettingsScreen() {
     }
 }
 
-function showWelcomeScreen() {
-    hideAllScreens();
-    const ws = document.getElementById('welcomeScreen');
-    if (ws) {
-        ws.classList.remove('hidden');
-        ws.classList.add('active');
-    }
-}
-
 function hideAllScreens() {
     const ws = document.getElementById('welcomeScreen');
     if (ws) {
@@ -205,25 +196,8 @@ function hideAllScreens() {
 
 function launchAppOrGame(url, title) {
     if (!url) return;
-    
-    // Hide all screens and show proxy frame
-    hideAllScreens();
-    
-    // Encode URL for proxy
-    const encodedUrl = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    
-    const pf = document.getElementById("proxyFrame");
-    if (pf) {
-        pf.src = '/proxy/~/' + encodedUrl;
-        pf.classList.add('active');
-    }
-    
-    // Update address bar if available
-    const addressBar = document.getElementById('addressBar');
-    if (addressBar) {
-        addressBar.value = url;
-    }
-    
+    // Use the same navigation path as either search bar so history and tab titles stay in sync.
+    handleSearchOrNavigate(url);
     console.log(`[Apps/Games] Launched: ${title} -> ${url}`);
 }
 
@@ -238,7 +212,6 @@ window.DiamondAppsGames = {
     showAppsScreen,
     showGamesScreen,
     showSettingsScreen,
-    showWelcomeScreen,
     launchAppOrGame,
     hideAllScreens
 };

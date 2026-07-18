@@ -3,14 +3,19 @@
 // Encode URL for proxy using base64url encoding (matching server-side)
 function encodeUrl(url) {
     if (!url) return url;
-    return Buffer.from(url, 'utf-8').toString('base64url');
+    const bytes = new TextEncoder().encode(url);
+    let binary = '';
+    bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 // Decode URL from proxy
 function decodeUrl(str) {
     if (!str) return str;
     try {
-        return Buffer.from(str, 'base64url').toString('utf-8');
+        const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        const binary = atob(base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '='));
+        return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
     } catch (e) {
         // Fallback to legacy format
         try {

@@ -51,12 +51,6 @@ function setupEventListeners() {
     goBtn.addEventListener('click', () => {
         navigateToUrl();
     });
-    addressBar.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            navigateToUrl();
-        }
-    });
     addressBar.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -92,15 +86,6 @@ function setupEventListeners() {
         }
     });
     
-    mainSearchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const query = mainSearchInput.value.trim();
-            if (query) {
-                handleSearchOrNavigate(query);
-            }
-        }
-    });
     
     mainSearchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -141,12 +126,6 @@ function setupEventListeners() {
     });
     
     adminLoginBtn.addEventListener('click', adminLogin);
-    adminPassword.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            adminLogin();
-        }
-    });
     adminPassword.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -368,8 +347,7 @@ function loadUrlInFrame(url) {
     proxyFrame.classList.add('active');
 
     // Encode URL for proxy using base64url encoding
-    const encodedUrl = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    proxyFrame.src = '/proxy/~/' + encodedUrl;
+    proxyFrame.src = buildProxyUrl(url);
 
     secureIcon.className = 'fas fa-lock secure-icon';
 }
